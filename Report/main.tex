@@ -273,6 +273,15 @@ Grid parameters:
     \item Uniform grid spacing: $\Delta r^* = 0.5/n_r$, $\Delta z^* = 50/n_z$
 \end{itemize}
 
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.95\textwidth]{../Plots_python/grid_structure_diagram.png}
+    \caption{Staggered grid structure showing storage locations of variables. Scalars ($p^*$, $\theta$) are stored at cell centers (blue circles), axial velocity $w^*$ at vertical faces (green squares), and radial velocity $u^*$ at horizontal faces (red triangles). The highlighted control volume $CV_{i,j}$ shows the indexing convention.}
+    \label{fig:grid_structure}
+\end{figure}
+
+The staggered arrangement (Figure~\ref{fig:grid_structure}) prevents pressure-velocity coupling issues that can arise with collocated grids. Velocity components are naturally stored at locations where mass fluxes through control volume faces are computed.
+
 \subsection{Spatial Discretization}
 
 The governing equations are discretized using the \textbf{Finite Volume Method} with \textbf{second-order accuracy}.
