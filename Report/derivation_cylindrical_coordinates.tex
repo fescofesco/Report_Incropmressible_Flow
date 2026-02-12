@@ -1,7 +1,7 @@
 % Derivation of Governing Equations in Cylindrical Coordinates
 % Axisymmetric Flow (no azimuthal dependence)
 
-\section*{Governing Equations in Cylindrical Coordinates}
+\section{Governing Equations in Cylindrical Coordinates}
 
 For an axisymmetric flow in cylindrical coordinates $(r, \phi, z)$ with no azimuthal dependence ($\partial/\partial\phi = 0$), the velocity field is:
 \begin{equation}
@@ -9,7 +9,7 @@ For an axisymmetric flow in cylindrical coordinates $(r, \phi, z)$ with no azimu
 \end{equation}
 where $u$ is the radial velocity and $w$ is the axial velocity.
 
-\subsection*{Continuity Equation}
+\subsection{Continuity Equation}
 
 The continuity equation for incompressible flow in cylindrical coordinates:
 \begin{equation}
@@ -21,9 +21,9 @@ For axisymmetric flow ($v = 0$, $\partial/\partial\phi = 0$):
     \boxed{\frac{\partial u}{\partial r} + \frac{u}{r} + \frac{\partial w}{\partial z} = 0}
 \end{equation}
 
-\subsection*{Navier-Stokes Equations}
+\subsection{Navier-Stokes Equations}
 
-\subsubsection*{Radial Momentum (r-direction)}
+\subsubsection{Radial Momentum (r-direction)}
 
 The full Navier-Stokes equation in the radial direction:
 \begin{equation}
@@ -35,11 +35,11 @@ For axisymmetric flow ($v = 0$, $\partial/\partial\phi = 0$):
     \boxed{\frac{\partial u}{\partial t} + u\frac{\partial u}{\partial r} + w\frac{\partial u}{\partial z} = -\frac{1}{\rho}\frac{\partial p}{\partial r} + \nu\left(\frac{\partial^2 u}{\partial r^2} + \frac{1}{r}\frac{\partial u}{\partial r} - \frac{u}{r^2} + \frac{\partial^2 u}{\partial z^2}\right)}
 \end{equation}
 
-\subsubsection*{Azimuthal Momentum (φ-direction)}
+\subsubsection{Azimuthal Momentum ($\phi$-direction)}
 
 For axisymmetric flow with $v = 0$ everywhere, this equation is trivially satisfied.
 
-\subsubsection*{Axial Momentum (z-direction)}
+\subsubsection{Axial Momentum (z-direction)}
 
 The full Navier-Stokes equation in the axial direction:
 \begin{equation}
@@ -51,7 +51,7 @@ For axisymmetric flow ($v = 0$, $\partial/\partial\phi = 0$):
     \boxed{\frac{\partial w}{\partial t} + u\frac{\partial w}{\partial r} + w\frac{\partial w}{\partial z} = -\frac{1}{\rho}\frac{\partial p}{\partial z} + \nu\left(\frac{\partial^2 w}{\partial r^2} + \frac{1}{r}\frac{\partial w}{\partial r} + \frac{\partial^2 w}{\partial z^2}\right)}
 \end{equation}
 
-\subsection*{Energy Equation}
+\subsection{Energy Equation}
 
 The energy equation for temperature $T$ (neglecting viscous dissipation):
 \begin{equation}
@@ -65,7 +65,7 @@ For axisymmetric flow ($v = 0$, $\partial/\partial\phi = 0$):
 
 where $\alpha = \lambda/(\rho c_v)$ is the thermal diffusivity.
 
-\subsection*{Laplacian Operator in Cylindrical Coordinates}
+\subsection{Laplacian Operator in Cylindrical Coordinates}
 
 For a scalar field $\phi$ in cylindrical coordinates:
 \begin{equation}
@@ -77,7 +77,7 @@ For axisymmetric flow ($\partial/\partial\phi = 0$):
     \nabla^2 \phi = \frac{\partial^2 \phi}{\partial r^2} + \frac{1}{r}\frac{\partial \phi}{\partial r} + \frac{\partial^2 \phi}{\partial z^2}
 \end{equation}
 
-\subsection*{Summary of Governing Equations}
+\subsection{Summary of Governing Equations}
 
 For incompressible, axisymmetric flow in a cylindrical pipe:
 
@@ -102,7 +102,7 @@ where:
     \item $\alpha = \lambda/(\rho c_v)$ = thermal diffusivity [m²/s]
 \end{itemize}
 
-\subsection*{Vector Form}
+\subsection{Vector Form}
 
 In compact vector notation:
 \begin{align}
