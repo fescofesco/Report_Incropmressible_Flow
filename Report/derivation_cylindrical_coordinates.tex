@@ -110,3 +110,189 @@ In compact vector notation:
     \frac{\partial \mathbf{u}}{\partial t} + (\mathbf{u} \cdot \nabla)\mathbf{u} &= -\frac{1}{\rho}\nabla p + \nu \nabla^2 \mathbf{u} \\
     \frac{\partial T}{\partial t} + \mathbf{u} \cdot \nabla T &= \alpha \nabla^2 T
 \end{align}
+
+\section{Finite Volume Formulation}
+
+\subsection{Axial Momentum Equation (w = const at faces)}
+
+Starting from the axial momentum equation:
+\begin{equation}
+    \frac{\partial w}{\partial t} + u\frac{\partial w}{\partial r} + w\frac{\partial w}{\partial z} = -\frac{1}{\rho}\frac{\partial p}{\partial z} + \nu\left(\frac{\partial^2 w}{\partial r^2} + \frac{1}{r}\frac{\partial w}{\partial r} + \frac{\partial^2 w}{\partial z^2}\right)
+\end{equation}
+
+We integrate over a control volume centered at the vertical face $(i, j+\frac{1}{2})$ where $w$ is defined. The volume element in cylindrical coordinates is $dV = r\,dr\,d\phi\,dz$.
+
+\subsubsection{Temporal Term}
+
+\begin{equation}
+    \int_{\phi_j}^{\phi_{j+1}} \int_{r_{i-1/2}}^{r_{i+1/2}} \int_{z_{j}}^{z_{j+1}} \frac{\partial w}{\partial t} \, r\,dr\,d\phi\,dz = \frac{\partial}{\partial t}\left(w_{i,j+1/2} \int_{\phi_j}^{\phi_{j+1}} \int_{r_{i-1/2}}^{r_{i+1/2}} r\,dr\,d\phi \int_{z_{j}}^{z_{j+1}} dz\right)
+\end{equation}
+
+For axisymmetric flow ($\Delta\phi = 2\pi$):
+\begin{equation}
+    = \frac{\partial w_{i,j+1/2}}{\partial t} \cdot 2\pi \left[\frac{r_{i+1/2}^2 - r_{i-1/2}^2}{2}\right] \Delta z = \frac{\partial w_{i,j+1/2}}{\partial t} \cdot \pi(r_{i+1/2}^2 - r_{i-1/2}^2) \Delta z
+\end{equation}
+
+Let $\bar{r}_i = \frac{r_{i+1/2} + r_{i-1/2}}{2}$ and $\Delta r = r_{i+1/2} - r_{i-1/2}$. Then:
+\begin{equation}
+    \boxed{\int_{\phi_j}^{\phi_{j+1}} \int_{r_{i-1/2}}^{r_{i+1/2}} \int_{z_{j}}^{z_{j+1}} \frac{\partial w}{\partial t} \, r\,dr\,d\phi\,dz = \frac{\partial w_{i,j+1/2}}{\partial t} \cdot 2\pi \bar{r}_i \Delta r \Delta z}
+\end{equation}
+
+\subsubsection{Convective Terms}
+
+\textbf{Radial convection:}
+\begin{equation}
+    \int_{\phi_j}^{\phi_{j+1}} \int_{r_{i-1/2}}^{r_{i+1/2}} \int_{z_{j}}^{z_{j+1}} u\frac{\partial w}{\partial r} \, r\,dr\,d\phi\,dz
+\end{equation}
+
+Using integration by parts or divergence form:
+\begin{equation}
+    = 2\pi \int_{z_{j}}^{z_{j+1}} \left[(ruw)_{r_{i+1/2}} - (ruw)_{r_{i-1/2}}\right] dz
+\end{equation}
+
+\begin{equation}
+    \boxed{= 2\pi \Delta z \left[r_{i+1/2} u_{i+1/2,j+1/2} w_{i+1,j+1/2} - r_{i-1/2} u_{i-1/2,j+1/2} w_{i-1,j+1/2}\right]}
+\end{equation}
+
+\textbf{Axial convection:}
+\begin{equation}
+    \int_{\phi_j}^{\phi_{j+1}} \int_{r_{i-1/2}}^{r_{i+1/2}} \int_{z_{j}}^{z_{j+1}} w\frac{\partial w}{\partial z} \, r\,dr\,d\phi\,dz
+\end{equation}
+
+\begin{equation}
+    = 2\pi \int_{r_{i-1/2}}^{r_{i+1/2}} r\,dr \left[(w^2)_{z_{j+1}} - (w^2)_{z_j}\right]
+\end{equation}
+
+\begin{equation}
+    \boxed{= \pi(r_{i+1/2}^2 - r_{i-1/2}^2) \left[w_{i,j+3/2} w_{i,j+1} - w_{i,j} w_{i,j-1/2}\right]}
+\end{equation}
+
+\subsubsection{Pressure Gradient}
+
+\begin{equation}
+    -\frac{1}{\rho}\int_{\phi_j}^{\phi_{j+1}} \int_{r_{i-1/2}}^{r_{i+1/2}} \int_{z_{j}}^{z_{j+1}} \frac{\partial p}{\partial z} \, r\,dr\,d\phi\,dz
+\end{equation}
+
+\begin{equation}
+    = -\frac{1}{\rho} \cdot 2\pi \int_{r_{i-1/2}}^{r_{i+1/2}} r\,dr \left[p_{z_{j+1}} - p_{z_j}\right]
+\end{equation}
+
+\begin{equation}
+    \boxed{= -\frac{2\pi}{\rho} \left[\frac{r_{i+1/2}^2 - r_{i-1/2}^2}{2}\right] (p_{i,j+1} - p_{i,j})}
+\end{equation}
+
+\subsubsection{Viscous Diffusion Terms}
+
+\textbf{Radial diffusion:}
+\begin{equation}
+    \nu \int_{\phi_j}^{\phi_{j+1}} \int_{r_{i-1/2}}^{r_{i+1/2}} \int_{z_{j}}^{z_{j+1}} \left(\frac{\partial^2 w}{\partial r^2} + \frac{1}{r}\frac{\partial w}{\partial r}\right) r\,dr\,d\phi\,dz
+\end{equation}
+
+Using the identity $\frac{\partial^2 w}{\partial r^2} + \frac{1}{r}\frac{\partial w}{\partial r} = \frac{1}{r}\frac{\partial}{\partial r}\left(r\frac{\partial w}{\partial r}\right)$:
+
+\begin{equation}
+    = \nu \cdot 2\pi \Delta z \int_{r_{i-1/2}}^{r_{i+1/2}} \frac{\partial}{\partial r}\left(r\frac{\partial w}{\partial r}\right) dr
+\end{equation}
+
+\begin{equation}
+    \boxed{= \nu \cdot 2\pi \Delta z \left[r_{i+1/2}\frac{\partial w}{\partial r}\bigg|_{r_{i+1/2}} - r_{i-1/2}\frac{\partial w}{\partial r}\bigg|_{r_{i-1/2}}\right]}
+\end{equation}
+
+\textbf{Axial diffusion:}
+\begin{equation}
+    \nu \int_{\phi_j}^{\phi_{j+1}} \int_{r_{i-1/2}}^{r_{i+1/2}} \int_{z_{j}}^{z_{j+1}} \frac{\partial^2 w}{\partial z^2} \, r\,dr\,d\phi\,dz
+\end{equation}
+
+\begin{equation}
+    = \nu \cdot 2\pi \int_{r_{i-1/2}}^{r_{i+1/2}} r\,dr \left[\frac{\partial w}{\partial z}\bigg|_{z_{j+1}} - \frac{\partial w}{\partial z}\bigg|_{z_j}\right]
+\end{equation}
+
+\begin{equation}
+    \boxed{= \nu \cdot \pi(r_{i+1/2}^2 - r_{i-1/2}^2) \left[\frac{w_{i,j+3/2} - w_{i,j+1/2}}{\Delta z} - \frac{w_{i,j+1/2} - w_{i,j-1/2}}{\Delta z}\right]}
+\end{equation}
+
+\subsection{Radial Momentum Equation (u = const at faces)}
+
+Starting from the radial momentum equation:
+\begin{equation}
+    \frac{\partial u}{\partial t} + u\frac{\partial u}{\partial r} + w\frac{\partial u}{\partial z} = -\frac{1}{\rho}\frac{\partial p}{\partial r} + \nu\left(\frac{\partial^2 u}{\partial r^2} + \frac{1}{r}\frac{\partial u}{\partial r} - \frac{u}{r^2} + \frac{\partial^2 u}{\partial z^2}\right)
+\end{equation}
+
+We integrate over a control volume centered at the horizontal face $(i+\frac{1}{2}, j)$ where $u$ is defined.
+
+\subsubsection{Temporal Term}
+
+\begin{equation}
+    \int_{\phi_j}^{\phi_{j+1}} \int_{r_{i}}^{r_{i+1}} \int_{z_{j-1/2}}^{z_{j+1/2}} \frac{\partial u}{\partial t} \, r\,dr\,d\phi\,dz
+\end{equation}
+
+For axisymmetric flow:
+\begin{equation}
+    = \frac{\partial u_{i+1/2,j}}{\partial t} \cdot 2\pi \left[\frac{r_{i+1}^2 - r_i^2}{2}\right] \Delta z
+\end{equation}
+
+\begin{equation}
+    \boxed{= \frac{\partial u_{i+1/2,j}}{\partial t} \cdot 2\pi r_{i+1/2} \Delta r \Delta z}
+\end{equation}
+
+where $r_{i+1/2} = \frac{r_{i+1} + r_i}{2}$ and $\Delta r = r_{i+1} - r_i$.
+
+\subsubsection{Convective Terms}
+
+\textbf{Radial convection:}
+\begin{equation}
+    \int_{\phi_j}^{\phi_{j+1}} \int_{r_{i}}^{r_{i+1}} \int_{z_{j-1/2}}^{z_{j+1/2}} u\frac{\partial u}{\partial r} \, r\,dr\,d\phi\,dz
+\end{equation}
+
+\begin{equation}
+    = 2\pi \Delta z \int_{r_i}^{r_{i+1}} u\frac{\partial u}{\partial r} r\,dr = 2\pi \Delta z \int_{r_i}^{r_{i+1}} \frac{\partial}{\partial r}\left(\frac{u^2 r}{2}\right) dr
+\end{equation}
+
+\begin{equation}
+    \boxed{= 2\pi \Delta z \left[\frac{r_{i+1} u_{i+3/2,j}^2}{2} - \frac{r_i u_{i-1/2,j}^2}{2}\right]}
+\end{equation}
+
+\textbf{Axial convection:}
+\begin{equation}
+    \int_{\phi_j}^{\phi_{j+1}} \int_{r_{i}}^{r_{i+1}} \int_{z_{j-1/2}}^{z_{j+1/2}} w\frac{\partial u}{\partial z} \, r\,dr\,d\phi\,dz
+\end{equation}
+
+\begin{equation}
+    \boxed{= \pi(r_{i+1}^2 - r_i^2) \left[w_{i+1/2,j+1/2} u_{i+1/2,j+1} - w_{i+1/2,j-1/2} u_{i+1/2,j-1}\right]}
+\end{equation}
+
+\subsubsection{Pressure Gradient}
+
+\begin{equation}
+    -\frac{1}{\rho}\int_{\phi_j}^{\phi_{j+1}} \int_{r_{i}}^{r_{i+1}} \int_{z_{j-1/2}}^{z_{j+1/2}} \frac{\partial p}{\partial r} \, r\,dr\,d\phi\,dz
+\end{equation}
+
+\begin{equation}
+    = -\frac{2\pi \Delta z}{\rho} \int_{r_i}^{r_{i+1}} r\frac{\partial p}{\partial r} dr
+\end{equation}
+
+\begin{equation}
+    \boxed{= -\frac{2\pi \Delta z}{\rho} \left[\frac{r_{i+1} p_{i+1,j} + r_i p_{i,j}}{2}(p_{i+1,j} - p_{i,j})/\Delta r\right] \approx -\frac{\pi \Delta z}{\rho}(r_{i+1}^2 - r_i^2)\frac{p_{i+1,j} - p_{i,j}}{\Delta r}}
+\end{equation}
+
+\subsubsection{Viscous Diffusion Terms}
+
+\textbf{Radial diffusion:}
+\begin{equation}
+    \nu \int_{\phi_j}^{\phi_{j+1}} \int_{r_{i}}^{r_{i+1}} \int_{z_{j-1/2}}^{z_{j+1/2}} \left(\frac{\partial^2 u}{\partial r^2} + \frac{1}{r}\frac{\partial u}{\partial r} - \frac{u}{r^2}\right) r\,dr\,d\phi\,dz
+\end{equation}
+
+Using the identity $\frac{\partial^2 u}{\partial r^2} + \frac{1}{r}\frac{\partial u}{\partial r} - \frac{u}{r^2} = \frac{1}{r}\frac{\partial}{\partial r}\left(r\frac{\partial u}{\partial r}\right) - \frac{u}{r^2}$:
+
+\begin{equation}
+    \boxed{= \nu \cdot 2\pi \Delta z \left[r_{i+1}\frac{\partial u}{\partial r}\bigg|_{r_{i+1}} - r_i\frac{\partial u}{\partial r}\bigg|_{r_i}\right] - \nu \cdot 2\pi \Delta z \int_{r_i}^{r_{i+1}} \frac{u}{r} dr}
+\end{equation}
+
+\textbf{Axial diffusion:}
+\begin{equation}
+    \nu \int_{\phi_j}^{\phi_{j+1}} \int_{r_{i}}^{r_{i+1}} \int_{z_{j-1/2}}^{z_{j+1/2}} \frac{\partial^2 u}{\partial z^2} \, r\,dr\,d\phi\,dz
+\end{equation}
+
+\begin{equation}
+    \boxed{= \nu \cdot \pi(r_{i+1}^2 - r_i^2) \left[\frac{u_{i+1/2,j+1} - 2u_{i+1/2,j} + u_{i+1/2,j-1}}{\Delta z^2}\right]}
+\end{equation}

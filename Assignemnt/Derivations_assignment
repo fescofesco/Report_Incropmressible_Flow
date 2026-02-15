@@ -1,0 +1,40 @@
+
+
+Show the theoretical derrivation of 
+
+1) 2D cartesian coordinates
+2) 2D cylindrical coordinates (u, w)
+3) 2D cylindrical coordinates (u,v)
+
+To do that create 3 files
+
+1_2D_cartesian_xy.tex
+2_2D_cylindrical_coordinates_uw.tex
+3_2D_cylcindrical_coordinates_uv.tex
+
+and integrate these files to main.tex
+
+Start with continuity and momentum in 2 directions
+Integrate the equations 
+1) dx dy 
+2) dr dphi 
+3)  dr dz
+
+and show the full compleated equation to calculate
+
+v_ij^(n+1) like here 
+
+v_ij^(n+1) = v_ij ^* - dt / rho * 2 / r_pi  * (p'_(ij+1) - p'_ij) / (phi_(j+1 - phi_(j-1))
+
+p^(n+1) = p^n + p' * zeta ... zeta e.g. 50%
+
+simplify the equations to a point i can use the equatino to directly program it into my python program for the solver
+
+
+Show the poison solver equations procedure
+
+Create a sketch for each derrivation
+
+
+Explain the ghost cells at the boundary conditions and show the B.C. graphically
+

@@ -1,0 +1,458 @@
+% ============================================================
+%  Derivation: 2D Cylindrical Coordinates (r, phi)
+%  Velocities: u (radial), v (azimuthal)
+%  Integration element: dr dphi   (no z-dependence)
+% ============================================================
+
+\section{2D Incompressible Flow in Cylindrical Coordinates $(r,\phi)$ --- Velocities $(u,v)$}
+\label{sec:cyl_uv}
+
+\subsection{Governing Equations (Strong Form)}
+
+For flow in the $(r,\phi)$-plane with $\partial/\partial z = 0$ and $w = 0$:
+
+\textbf{Continuity:}
+\begin{equation}
+    \frac{1}{r}\frac{\partial(ru)}{\partial r}
+    +\frac{1}{r}\frac{\partial v}{\partial\phi} = 0
+    \quad\Longleftrightarrow\quad
+    \frac{\partial u}{\partial r}+\frac{u}{r}
+    +\frac{1}{r}\frac{\partial v}{\partial\phi} = 0
+    \label{eq:cyl_uv_cont}
+\end{equation}
+
+\textbf{Radial momentum ($r$-direction):}
+\begin{equation}
+    \frac{\partial u}{\partial t}
+    + \frac{1}{r}\frac{\partial(ru^2)}{\partial r}
+    + \frac{1}{r}\frac{\partial(uv)}{\partial\phi}
+    - \frac{v^2}{r}
+    = -\frac{1}{\rho}\frac{\partial p}{\partial r}
+    + \frac{1}{\rho r}\frac{\partial(r\tau_{rr})}{\partial r}
+    + \frac{1}{\rho r}\frac{\partial\tau_{r\phi}}{\partial\phi}
+    - \frac{\tau_{\phi\phi}}{\rho r}
+    \label{eq:cyl_uv_momr}
+\end{equation}
+
+\textbf{Azimuthal momentum ($\phi$-direction):}
+\begin{equation}
+    \frac{\partial v}{\partial t}
+    + \frac{1}{r}\frac{\partial(ruv)}{\partial r}
+    + \frac{1}{r}\frac{\partial(v^2)}{\partial\phi}
+    + \frac{uv}{r}
+    = -\frac{1}{\rho r}\frac{\partial p}{\partial\phi}
+    + \frac{1}{\rho r}\frac{\partial(r\tau_{r\phi})}{\partial r}
+    + \frac{1}{\rho r}\frac{\partial\tau_{\phi\phi}}{\partial\phi}
+    \label{eq:cyl_uv_momv}
+\end{equation}
+
+where $\tau_{rr}$, $\tau_{r\phi}$, and $\tau_{\phi\phi}$ are stress tensor components. For Newtonian fluids with constant viscosity $\mu = \rho\nu$:
+\begin{align}
+    \tau_{rr} &= 2\mu\frac{\partial u}{\partial r}
+    \\
+    \tau_{r\phi} &= \mu\!\left(r\frac{\partial}{\partial r}\left(\frac{v}{r}\right)+\frac{1}{r}\frac{\partial u}{\partial\phi}\right)
+    \\
+    \tau_{\phi\phi} &= 2\mu\left(\frac{u}{r}+\frac{1}{r}\frac{\partial v}{\partial\phi}\right)
+\end{align}
+
+The centripetal ($-v^2/r$) and Coriolis ($+uv/r$) terms arise from the curvature of the coordinate system.
+
+\textbf{Conservation vs.\ Convective Form:}
+The equations above are in \emph{conservation form}, expressing momentum fluxes as divergences: $\frac{1}{r}\frac{\partial(ru^2)}{\partial r}$ and $\frac{1}{r}\frac{\partial(uv)}{\partial\phi}$ in the radial equation. To derive the \emph{convective form}, expand these using the product rule. For example, in the radial momentum equation:
+\begin{equation}
+    \frac{1}{r}\frac{\partial(ru^2)}{\partial r} + \frac{1}{r}\frac{\partial(uv)}{\partial\phi}
+    = \frac{u}{r}\frac{\partial(ru)}{\partial r} + u\frac{\partial u}{\partial r} + \frac{1}{r}\frac{\partial(uv)}{\partial\phi}
+    = u\left(\frac{1}{r}\frac{\partial(ru)}{\partial r} + \frac{1}{r}\frac{\partial v}{\partial\phi}\right) + u\frac{\partial u}{\partial r} + \frac{v}{r}\frac{\partial u}{\partial\phi}
+\end{equation}
+By continuity $\frac{1}{r}\frac{\partial(ru)}{\partial r} + \frac{1}{r}\frac{\partial v}{\partial\phi} = 0$, the grouped term vanishes:
+\begin{equation}
+    \frac{1}{r}\frac{\partial(ru^2)}{\partial r} + \frac{1}{r}\frac{\partial(uv)}{\partial\phi} = u\frac{\partial u}{\partial r} + \frac{v}{r}\frac{\partial u}{\partial\phi}
+\end{equation}
+This is the **convective form**. In cylindrical coordinates, the conservation form is essential for finite volume methods because the metric factors ($r$-weighting) appear naturally in the flux integrals. The divergence structure ensures that discrete momentum is conserved when integrated over the annular control volume with area element $r\,dr\,d\phi$.
+
+% ----------------------------------------------------------
+\subsection{Staggered Grid Layout}
+% ----------------------------------------------------------
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[scale=1.1]
+    % Grid (r horizontal, phi vertical)
+    \draw[gray!40,thin] (0,0) grid (4,4);
+
+    % Cell centres
+    \foreach \i in {0.5,1.5,2.5,3.5}{
+        \foreach \j in {0.5,1.5,2.5,3.5}{
+            \filldraw[blue] (\i,\j) circle (2.5pt);
+        }
+    }
+    % u-faces (radial direction, horizontal faces)
+    \foreach \i in {1,2,3}{
+        \foreach \j in {0.5,1.5,2.5,3.5}{
+            \draw[red,thick,->] (\i-0.18,\j) -- (\i+0.18,\j);
+        }
+    }
+    % v-faces (azimuthal direction, vertical faces)
+    \foreach \i in {0.5,1.5,2.5,3.5}{
+        \foreach \j in {1,2,3}{
+            \draw[teal,thick,->] (\i,\j-0.18) -- (\i,\j+0.18);
+        }
+    }
+
+    % Axes
+    \draw[->] (-0.3,0) -- (4.5,0) node[right]{$r$};
+    \draw[->] (0,-0.3) -- (0,4.5) node[above]{$\phi$};
+
+    % Labels for one cell
+    \node[blue,  font=\small] at (1.5,1.5) {$p_{i,j}$};
+    \node[red,   font=\small, below] at (2,1.5) {$u_{i+\frac{1}{2},j}$};
+    \node[teal,  font=\small, right] at (1.5,2) {$v_{i,j+\frac{1}{2}}$};
+
+    % Index labels
+    \node[font=\footnotesize] at (0.5,-0.35) {$i{-}1$};
+    \node[font=\footnotesize] at (1.5,-0.35) {$i$};
+    \node[font=\footnotesize] at (2.5,-0.35) {$i{+}1$};
+    \node[font=\footnotesize] at (-0.35,0.5) {$j{-}1$};
+    \node[font=\footnotesize] at (-0.3,1.5) {$j$};
+    \node[font=\footnotesize] at (-0.3,2.5) {$j{+}1$};
+
+    % Control volume sketch
+    \fill[yellow!25, opacity=0.5] (1,1) rectangle (2,2);
+    \draw[dashed, orange] (1,1) rectangle (2,2);
+    \node[font=\footnotesize, orange] at (1.5,1.85) {$\Delta r \cdot r\,\Delta\phi$};
+
+    % Legend
+    \filldraw[blue] (4.7,3.8) circle (2.5pt); \node[font=\small,right] at (4.8,3.8) {$p$};
+    \draw[red,thick,->]  (4.55,3.3) -- (4.9,3.3); \node[font=\small,right] at (4.95,3.3) {$u$};
+    \draw[teal,thick,->] (4.7,2.65) -- (4.7,3.0); \node[font=\small,right] at (4.8,2.82) {$v$};
+\end{tikzpicture}
+\caption{Staggered grid in the $(r,\phi)$ plane. Scalars at cell centres (blue); radial velocity $u$ at $r$-faces (red); azimuthal velocity $v$ at $\phi$-faces (teal). The control volume area element is $\Delta r \cdot r\,\Delta\phi$.}
+\label{fig:cyl_uv_grid}
+\end{figure}
+
+% ----------------------------------------------------------
+\subsection{Finite Volume Discretisation --- Integration over $\Delta r\,(r\,\Delta\phi)$}
+% ----------------------------------------------------------
+
+The FV approach integrates the conservation laws over a discrete control volume (CV), converting PDEs into algebraic equations. The key tool is the **2D Gauss divergence theorem**:
+
+\begin{equation}
+    \iint_{\Omega} \nabla \cdot \mathbf{F} \, dA = \oint_{\partial\Omega} \mathbf{F} \cdot \mathbf{n} \, ds
+\end{equation}
+
+where $\Omega$ is the control volume, $\mathbf{F}$ is a flux vector, and $\mathbf{n}$ is the outward normal. This transforms volume integrals of divergence into surface integrals of normal fluxes, which are discretized at cell faces. This is why the **conservation form** of the equations (with divergence operators) is so natural for FV: each divergence term directly corresponds to net flux out of the cell boundaries.
+
+\textbf{Domain:} The FV area element in the $(r,\phi)$-plane is $dA = r\,dr\,d\phi$.
+Cell $(i,j)$ occupies $r\in[r_{i-\frac{1}{2}},r_{i+\frac{1}{2}}]$,
+$\phi\in[\phi_{j-\frac{1}{2}},\phi_{j+\frac{1}{2}}]$.
+
+\subsubsection{Continuity Equation}
+
+Integrating Eq.~\eqref{eq:cyl_uv_cont} over the scalar CV:
+\begin{equation}
+    \int_{\phi_{j-\frac{1}{2}}}^{\phi_{j+\frac{1}{2}}}
+    \int_{r_{i-\frac{1}{2}}}^{r_{i+\frac{1}{2}}}
+    \left[\frac{1}{r}\frac{\partial(ru)}{\partial r}
+         +\frac{1}{r}\frac{\partial v}{\partial\phi}\right]
+    r\,dr\,d\phi = 0
+\end{equation}
+
+Applying the 2D divergence theorem:
+\begin{equation}
+\boxed{
+    \frac{r_{i+\frac{1}{2}}\,u_{i+\frac{1}{2},j} - r_{i-\frac{1}{2}}\,u_{i-\frac{1}{2},j}}{r_i\,\Delta r}
+    + \frac{v_{i,j+\frac{1}{2}} - v_{i,j-\frac{1}{2}}}{r_i\,\Delta\phi} = 0
+}
+\label{eq:cyl_uv_disc_cont}
+\end{equation}
+
+\subsubsection{Azimuthal Momentum: CV at $(i,\,j+\tfrac{1}{2})$}
+
+Integrate Eq.~\eqref{eq:cyl_uv_momv} over $[r_{i-\frac{1}{2}},r_{i+\frac{1}{2}}]\times[\phi_j,\phi_{j+1}]$:
+
+\textbf{Temporal term:}
+\begin{equation}
+    \frac{v_{i,j+\frac{1}{2}}^{n+1}-v_{i,j+\frac{1}{2}}^{n}}{\Delta t}
+\end{equation}
+
+\textbf{Convective terms:}
+\begin{align}
+    u\frac{\partial v}{\partial r}\bigg|_{i,j+\frac{1}{2}}
+    &\approx \bar{u}_{i,j+\frac{1}{2}}\,
+      \frac{v_{i+1,j+\frac{1}{2}}-v_{i-1,j+\frac{1}{2}}}{2\Delta r}
+    \\[4pt]
+    \frac{v}{r}\frac{\partial v}{\partial\phi}\bigg|_{i,j+\frac{1}{2}}
+    &\approx \frac{v_{i,j+\frac{1}{2}}}{r_i}\,
+      \frac{v_{i,j+\frac{3}{2}}-v_{i,j-\frac{1}{2}}}{2\Delta\phi}
+    \\[4pt]
+    \frac{uv}{r}\bigg|_{i,j+\frac{1}{2}}
+    &\approx \frac{\bar{u}_{i,j+\frac{1}{2}}\,v_{i,j+\frac{1}{2}}}{r_i}
+    \quad\text{(centripetal coupling term)}
+\end{align}
+
+\textbf{Pressure gradient:}
+\begin{equation}
+    \frac{1}{\rho r}\frac{\partial p}{\partial\phi}\bigg|_{i,j+\frac{1}{2}}
+    \approx \frac{1}{\rho\,r_i}\,\frac{p_{i,j+1}-p_{i,j}}{\Delta\phi}
+\end{equation}
+
+\textbf{Viscous diffusion:}
+\begin{align}
+    \nu\!\left(\frac{\partial^2 v}{\partial r^2}+\frac{1}{r}\frac{\partial v}{\partial r}-\frac{v}{r^2}\right)
+    &\approx \frac{\nu}{r_i\,\Delta r}\!\left(
+       r_{i+\frac{1}{2}}\frac{v_{i+1,j+\frac{1}{2}}-v_{i,j+\frac{1}{2}}}{\Delta r}
+      -r_{i-\frac{1}{2}}\frac{v_{i,j+\frac{1}{2}}-v_{i-1,j+\frac{1}{2}}}{\Delta r}
+    \right) - \frac{\nu\,v_{i,j+\frac{1}{2}}}{r_i^2}
+    \\[4pt]
+    \frac{\nu}{r^2}\frac{\partial^2 v}{\partial\phi^2}
+    &\approx \frac{\nu}{r_i^2}\,
+      \frac{v_{i,j+\frac{3}{2}}-2v_{i,j+\frac{1}{2}}+v_{i,j-\frac{1}{2}}}{\Delta\phi^2}
+    \\[4pt]
+    \frac{2\nu}{r^2}\frac{\partial u}{\partial\phi}
+    &\approx \frac{2\nu}{r_i^2}\,
+      \frac{\bar{u}_{i,j+1}-\bar{u}_{i,j}}{\Delta\phi}
+\end{align}
+
+\subsubsection{Radial Momentum: CV at $(i+\tfrac{1}{2},\,j)$}
+
+\textbf{Convective terms:}
+\begin{align}
+    u\frac{\partial u}{\partial r}\bigg|_{i+\frac{1}{2},j}
+    &\approx u_{i+\frac{1}{2},j}\,
+      \frac{u_{i+\frac{3}{2},j}-u_{i-\frac{1}{2},j}}{2\Delta r}
+    \\[4pt]
+    \frac{v}{r}\frac{\partial u}{\partial\phi}\bigg|_{i+\frac{1}{2},j}
+    &\approx \frac{\bar{v}_{i+\frac{1}{2},j}}{r_{i+\frac{1}{2}}}\,
+      \frac{u_{i+\frac{1}{2},j+1}-u_{i+\frac{1}{2},j-1}}{2\Delta\phi}
+    \\[4pt]
+    \frac{v^2}{r}\bigg|_{i+\frac{1}{2},j}
+    &\approx \frac{\bar{v}_{i+\frac{1}{2},j}^2}{r_{i+\frac{1}{2}}}
+    \quad\text{(centrifugal term)}
+\end{align}
+
+\textbf{Pressure gradient:}
+\begin{equation}
+    \frac{1}{\rho}\frac{\partial p}{\partial r}\bigg|_{i+\frac{1}{2},j}
+    \approx \frac{1}{\rho}\,\frac{p_{i+1,j}-p_{i,j}}{\Delta r}
+\end{equation}
+
+% ----------------------------------------------------------
+\subsection{Projection Method}
+% ----------------------------------------------------------
+
+\subsubsection{Step 1 --- Predictor (without pressure)}
+
+\begin{equation}
+\boxed{
+v^{*}_{i,j+\frac{1}{2}} = v^n_{i,j+\frac{1}{2}}
++\Delta t\left[
+  -\bar{u}^n\frac{v^n_{i+1,j+\frac{1}{2}}-v^n_{i-1,j+\frac{1}{2}}}{2\Delta r}
+  -\frac{v^n_{i,j+\frac{1}{2}}}{r_i}\frac{v^n_{i,j+\frac{3}{2}}-v^n_{i,j-\frac{1}{2}}}{2\Delta\phi}
+  -\frac{\bar{u}^n v^n_{i,j+\frac{1}{2}}}{r_i}
+  +\nu D_r^v + \nu D_\phi^v
+\right]
+}
+\label{eq:cyl_uv_pred_v}
+\end{equation}
+
+\begin{equation}
+\boxed{
+u^{*}_{i+\frac{1}{2},j} = u^n_{i+\frac{1}{2},j}
++\Delta t\left[
+  -u^n_{i+\frac{1}{2},j}\frac{u^n_{i+\frac{3}{2},j}-u^n_{i-\frac{1}{2},j}}{2\Delta r}
+  -\frac{\bar{v}^n}{r_{i+\frac{1}{2}}}\frac{u^n_{i+\frac{1}{2},j+1}-u^n_{i+\frac{1}{2},j-1}}{2\Delta\phi}
+  +\frac{(\bar{v}^n)^2}{r_{i+\frac{1}{2}}}
+  +\nu D_r^u + \nu D_\phi^u
+\right]
+}
+\label{eq:cyl_uv_pred_u}
+\end{equation}
+
+with diffusion operators:
+\begin{align}
+    D_r^v &= \frac{r_{i+\frac{1}{2}}(v^n_{i+1,j+\frac{1}{2}}-v^n_{i,j+\frac{1}{2}})-r_{i-\frac{1}{2}}(v^n_{i,j+\frac{1}{2}}-v^n_{i-1,j+\frac{1}{2}})}{r_i\,\Delta r^2}
+            -\frac{v^n_{i,j+\frac{1}{2}}}{r_i^2}
+    \\[4pt]
+    D_\phi^v &= \frac{v^n_{i,j+\frac{3}{2}}-2v^n_{i,j+\frac{1}{2}}+v^n_{i,j-\frac{1}{2}}}{r_i^2\,\Delta\phi^2}
+               +\frac{2}{r_i^2}\frac{\bar{u}^n_{i,j+1}-\bar{u}^n_{i,j}}{\Delta\phi}
+\end{align}
+
+\subsubsection{Step 2 --- Poisson Equation for Pressure Correction $p'$}
+
+From $\nabla\cdot\mathbf{u}^{n+1}=0$ with $\mathbf{u}^{n+1}=\mathbf{u}^*-(\Delta t/\rho)\nabla p'$:
+\begin{equation}
+    \frac{1}{r}\frac{\partial}{\partial r}\!\left(r\frac{\partial p'}{\partial r}\right)
+    +\frac{1}{r^2}\frac{\partial^2 p'}{\partial\phi^2}
+    = \frac{\rho}{\Delta t}\left(
+       \frac{1}{r}\frac{\partial(ru^*)}{\partial r}
+      +\frac{1}{r}\frac{\partial v^*}{\partial\phi}
+      \right)
+\end{equation}
+
+Discretised at cell $(i,j)$:
+\begin{equation}
+\boxed{
+\frac{r_{i+\frac{1}{2}}(p'_{i+1,j}-p'_{i,j})-r_{i-\frac{1}{2}}(p'_{i,j}-p'_{i-1,j})}{r_i\,\Delta r^2}
++\frac{p'_{i,j+1}-2p'_{i,j}+p'_{i,j-1}}{r_i^2\,\Delta\phi^2}
+= \frac{\rho}{\Delta t}\left(
+  \frac{r_{i+\frac{1}{2}}\,u^*_{i+\frac{1}{2},j}-r_{i-\frac{1}{2}}\,u^*_{i-\frac{1}{2},j}}{r_i\,\Delta r}
+  +\frac{v^*_{i,j+\frac{1}{2}}-v^*_{i,j-\frac{1}{2}}}{r_i\,\Delta\phi}
+\right)
+}
+\label{eq:cyl_uv_disc_poisson}
+\end{equation}
+
+\subsubsection{Step 3 --- Velocity Correction}
+
+The corrected velocities enforce discrete continuity:
+
+\begin{equation}
+\boxed{
+    u^{n+1}_{i+\frac{1}{2},j} = u^*_{i+\frac{1}{2},j}
+    - \frac{\Delta t}{\rho}\,\frac{p'_{i+1,j}-p'_{i,j}}{\Delta r}
+}
+\label{eq:cyl_uv_corr_u}
+\end{equation}
+
+\begin{equation}
+\boxed{
+    v^{n+1}_{i,j+\frac{1}{2}} = v^*_{i,j+\frac{1}{2}}
+    - \frac{\Delta t}{\rho}\,\frac{1}{r_i}\,\frac{p'_{i,j+1}-p'_{i,j}}{\Delta\phi}
+    = v^*_{i,j+\frac{1}{2}}
+    - \frac{\Delta t}{\rho}\,\frac{2}{r_i}\,
+      \frac{p'_{i,j+1}-p'_{i,j}}{\phi_{j+1}-\phi_{j-1}}
+}
+\label{eq:cyl_uv_corr_v}
+\end{equation}
+
+Note: $\phi_{j+1}-\phi_{j-1} = 2\Delta\phi$, confirming both forms are equivalent.
+
+\subsubsection{Step 4 --- Pressure Update}
+
+\begin{equation}
+\boxed{
+    p^{n+1}_{i,j} = p^{n}_{i,j} + \zeta\,p'_{i,j}, \qquad \zeta \approx 0.5
+}
+\label{eq:cyl_uv_pupdate}
+\end{equation}
+
+% ----------------------------------------------------------
+\subsection{Poisson Solver Procedure}
+% ----------------------------------------------------------
+
+Rearranging Eq.~\eqref{eq:cyl_uv_disc_poisson}:
+\begin{equation}
+    p'_{i,j} = \frac{b_{i,j}
+      - \dfrac{r_{i+\frac{1}{2}}\,p'_{i+1,j}+r_{i-\frac{1}{2}}\,p'_{i-1,j}}{r_i\,\Delta r^2}
+      - \dfrac{p'_{i,j+1}+p'_{i,j-1}}{r_i^2\,\Delta\phi^2}
+    }
+    {-\dfrac{r_{i+\frac{1}{2}}+r_{i-\frac{1}{2}}}{r_i\,\Delta r^2}
+     -\dfrac{2}{r_i^2\,\Delta\phi^2}}
+    \label{eq:cyl_uv_gs}
+\end{equation}
+
+\textbf{Iterative procedure:}
+\begin{enumerate}
+    \item Initialise $p'=0$.
+    \item Enforce BCs: $\partial p'/\partial r=0$ at $r=r_\text{min}$ and $r=r_\text{max}$;
+          periodic in $\phi$ (or $p'=0$ at one reference point to fix the null space).
+    \item Sweep interior with Eq.~\eqref{eq:cyl_uv_gs}; apply SOR with $\omega \approx 1.5$.
+    \item Repeat until $\max|p'^{\text{new}}-p'^{\text{old}}|<\varepsilon$.
+\end{enumerate}
+
+\textbf{Note on periodicity:} For a full annulus ($\phi\in[0,2\pi]$) the domain is periodic in $\phi$, so no ghost cells are needed in the $\phi$-direction; instead, the first and last $\phi$-slices are identified.
+
+% ----------------------------------------------------------
+\subsection{Ghost Cells and Boundary Conditions}
+% ----------------------------------------------------------
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[scale=1.0]
+    % Physical: annular sector (displayed as rectangle r-phi)
+    \fill[blue!8]  (1,0.5) rectangle (4,3.5);
+    % Ghost: inner radius
+    \fill[green!20] (0,0.5) rectangle (1,3.5);
+    % Ghost: outer radius
+    \fill[red!20]  (4,0.5) rectangle (5,3.5);
+    % Ghost/periodic: phi min
+    \fill[orange!20] (1,0) rectangle (4,0.5);
+    % Ghost/periodic: phi max
+    \fill[orange!20] (1,3.5) rectangle (4,4);
+
+    % Grid
+    \draw[gray!60,thin] (0,0) grid (5,4);
+    \draw[black,very thick] (1,0.5) rectangle (4,3.5);
+
+    % Axes
+    \draw[->] (-0.2,0) -- (5.3,0) node[right]{$r$};
+    \draw[->] (0,-0.2) -- (0,4.3) node[above]{$\phi$};
+
+    % Labels
+    \node[blue, font=\small] at (2.5,2)   {Physical domain};
+    \node[green!60!black, font=\small, rotate=90] at (0.5,2) {Inner BC};
+    \node[red!70!black, font=\small, rotate=90]   at (4.5,2) {Outer BC};
+    \node[orange!80!black, font=\small] at (2.5,0.25) {Periodic / $\phi$-ghost};
+    \node[orange!80!black, font=\small] at (2.5,3.75) {Periodic / $\phi$-ghost};
+
+    % Annotations
+    \node[font=\footnotesize, right] at (5.3,3.5) {\textbf{Outer wall} ($r=r_\text{out}$)};
+    \node[font=\footnotesize, right] at (5.3,3.1) {$u_g=-u_1$, $v_g=-v_1$};
+    \node[font=\footnotesize, right] at (5.3,2.7) {$p_g=p_1$};
+
+    \node[font=\footnotesize, right] at (5.3,2.0) {\textbf{Inner wall} ($r=r_\text{in}$)};
+    \node[font=\footnotesize, right] at (5.3,1.6) {$u_g=-u_1$ (no-penetration)};
+    \node[font=\footnotesize, right] at (5.3,1.2) {or symmetry: $u_g=u_1$};
+
+    \node[font=\footnotesize, right] at (5.3,0.6) {\textbf{$\phi$-direction}};
+    \node[font=\footnotesize, right] at (5.3,0.2) {Periodic: $\phi_g(\phi=0)=\phi(2\pi)$};
+\end{tikzpicture}
+\caption{Ghost cell layout for the $(r,\phi)$ domain shown as a flattened rectangle. Green: inner radial BC; red: outer radial BC; orange: azimuthal boundary (periodic for a full annulus).}
+\label{fig:cyl_uv_ghost}
+\end{figure}
+
+\begin{center}
+\begin{tabular}{llll}
+\toprule
+Boundary & Condition & Variable & Ghost value \\
+\midrule
+Inner wall ($r=r_\text{in}$)  & No-slip: $u=0$, $v=0$  & $u$ & $u_g = -u_1$ \\
+                               &                        & $v$ & $v_g = -v_1$ \\
+                               & $\partial p/\partial r=0$ & $p$ & $p_g = p_1$ \\
+\midrule
+Outer wall ($r=r_\text{out}$) & No-slip: $u=0$, $v=0$  & $u$ & $u_g = -u_1$ \\
+                               &                        & $v$ & $v_g = -v_1$ \\
+                               & $\partial p/\partial r=0$ & $p$ & $p_g = p_1$ \\
+\midrule
+Azimuthal ($\phi$, full annulus) & Periodic & any $\phi_f$ & $\phi_g(\phi=0) = \phi_f(\phi=2\pi)$ \\
+\midrule
+Symmetry axis ($r=0$, if present) & $u=0$, $\partial v/\partial r=0$ & $u$ & $u_g=-u_1$ \\
+                                   &                                   & $v$ & $v_g = v_1$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsubsection{Summary of Correction Equations (all three cases)}
+
+For quick reference, the velocity correction equations for all three coordinate systems are:
+
+\begin{center}
+\renewcommand{\arraystretch}{2.0}
+\begin{tabular}{lll}
+\toprule
+System & $u$-correction & $v$ (or $w$)-correction \\
+\midrule
+Cartesian $(x,y)$
+  & $u^{n+1}_{i+\frac{1}{2},j} = u^*_{i+\frac{1}{2},j} - \dfrac{\Delta t}{\rho}\dfrac{p'_{i+1,j}-p'_{i,j}}{\Delta x}$
+  & $v^{n+1}_{i,j+\frac{1}{2}} = v^*_{i,j+\frac{1}{2}} - \dfrac{\Delta t}{\rho}\dfrac{p'_{i,j+1}-p'_{i,j}}{\Delta y}$ \\[6pt]
+Cylindrical $(r,z)$
+  & $u^{n+1}_{i+\frac{1}{2},j} = u^*_{i+\frac{1}{2},j} - \dfrac{\Delta t}{\rho}\dfrac{p'_{i+1,j}-p'_{i,j}}{\Delta r}$
+  & $w^{n+1}_{i,j+\frac{1}{2}} = w^*_{i,j+\frac{1}{2}} - \dfrac{\Delta t}{\rho}\dfrac{p'_{i,j+1}-p'_{i,j}}{\Delta z}$ \\[6pt]
+Cylindrical $(r,\phi)$
+  & $u^{n+1}_{i+\frac{1}{2},j} = u^*_{i+\frac{1}{2},j} - \dfrac{\Delta t}{\rho}\dfrac{p'_{i+1,j}-p'_{i,j}}{\Delta r}$
+  & $v^{n+1}_{i,j+\frac{1}{2}} = v^*_{i,j+\frac{1}{2}} - \dfrac{\Delta t}{\rho}\dfrac{2}{r_i}\dfrac{p'_{i,j+1}-p'_{i,j}}{\phi_{j+1}-\phi_{j-1}}$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+The extra $1/r_i$ factor in the $(r,\phi)$ case reflects the metric coefficient of the azimuthal gradient.

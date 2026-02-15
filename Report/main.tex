@@ -14,6 +14,10 @@
 \usepackage{booktabs}
 \usepackage{bm}
 \usepackage{pdfpages}
+\usepackage{tikz}
+\usetikzlibrary{shapes.geometric, arrows.meta, positioning, fit}
+\usepackage{listings}
+\usepackage{xcolor}
 
 % Page geometry
 \geometry{margin=2.5cm}
@@ -24,9 +28,41 @@
 \newcommand{\Rey}{\text{Re}}
 \newcommand{\Pran}{\text{Pr}}
 
+% Listings style for MATLAB
+\definecolor{codegreen}{rgb}{0,0.5,0}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.5,0,0.35}
+\definecolor{backcolour}{rgb}{0.97,0.97,0.97}
+\definecolor{matlabblue}{rgb}{0.0,0.0,0.55}
+
+\lstdefinestyle{matlabstyle}{
+    backgroundcolor=\color{backcolour},
+    commentstyle=\color{codegreen}\itshape,
+    keywordstyle=\color{matlabblue}\bfseries,
+    numberstyle=\tiny\color{codegray},
+    stringstyle=\color{codepurple},
+    basicstyle=\ttfamily\footnotesize,
+    breakatwhitespace=false,
+    breaklines=true,
+    captionpos=b,
+    keepspaces=true,
+    numbers=left,
+    numbersep=5pt,
+    showspaces=false,
+    showstringspaces=false,
+    showtabs=false,
+    tabsize=4,
+    language=Matlab,
+    frame=single,
+    rulecolor=\color{codegray},
+}
+\lstset{style=matlabstyle}
+
 \begin{document}
 
-% Title page
+% ============================================================================
+% TITLE PAGE
+% ============================================================================
 \begin{titlepage}
     \centering
     \vspace*{2cm}
@@ -57,404 +93,695 @@
 \tableofcontents
 \newpage
 
-% Include the assignment (as per guidelines)
+% ============================================================================
+% ASSIGNMENT
+% ============================================================================
 \section*{Assignment}
 \addcontentsline{toc}{section}{Assignment}
 \includepdf[pages=-]{../Assignemnt/Assignment_WS25.pdf}
 
 \newpage
 
+% ============================================================================
+% 1. PROBLEM DESCRIPTION
+% ============================================================================
 \section{Problem Description}
 
 \subsection{Geometry and Setup}
 
-The problem considers a two-dimensional laminar flow in a cylindrical pipe with diameter $D$ and length $L = 50D$. The entire pipe wall is heated with constant heat flux $q_w = \text{const.}$ The incompressible fluid has constant properties: density $\rho$, dynamic viscosity $\mu$, thermal conductivity $\lambda$, and specific heat capacity $c_v$. Viscous dissipation is neglected in the thermal energy balance.
+The problem considers two-dimensional laminar flow in a cylindrical pipe with diameter~$D$ and length $L = 50D$.
+The pipe wall is heated with constant heat flux $q_w = \text{const}$.
+The incompressible fluid has constant properties: density~$\rho$, dynamic viscosity~$\mu$, thermal conductivity~$\lambda$, and specific heat capacity~$c_v$.
+Viscous dissipation is neglected.
 
-The flow enters the pipe with uniform velocity and temperature profiles:
+The flow enters with uniform velocity and temperature profiles:
 \begin{align}
     w\big|_{z=0} &= W_{\text{in}} = \text{const.} \\
     T\big|_{z=0} &= T_{\text{in}} = \text{const.}
 \end{align}
 
-The computational domain is shown schematically in Figure~\ref{fig:geometry}.
-
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.95\textwidth]{../Plots_python/geometry_diagram.png}
-    \caption{Schematic of the cylindrical pipe flow with constant wall heat flux. Flow enters with uniform velocity $W_{\text{in}}$ and temperature $T_{\text{in}}$, and develops into a parabolic profile along the pipe length.}
+    \caption{Schematic of the cylindrical pipe flow with constant wall heat flux.
+             Flow enters with uniform velocity $W_{\text{in}}$ and temperature $T_{\text{in}}$,
+             and develops into a parabolic profile along the pipe length.}
     \label{fig:geometry}
 \end{figure}
 
 \subsection{Physical Parameters}
 
 \begin{itemize}
-    \item Reynolds number: $\Rey = \frac{\rho W_{\text{in}} D}{\mu} = 100$
-    \item Prandtl number: $\Pran = \frac{\mu c_v}{\lambda} = 5$
+    \item Reynolds number: $\Rey = \dfrac{\rho W_{\text{in}} D}{\mu} = 100$
+    \item Prandtl number: $\Pran = \dfrac{\mu c_v}{\lambda} = 5$
     \item Length-to-diameter ratio: $L/D = 50$
 \end{itemize}
 
 \newpage
 
+% ============================================================================
+% 2. MATHEMATICAL FORMULATION
+% ============================================================================
 \section{Mathematical Formulation}
 
 \subsection{Governing Equations in Cylindrical Coordinates}
 
-For an axisymmetric flow in cylindrical coordinates $(r, z)$ with velocity components $(u, w)$ in the radial and axial directions respectively, the governing equations are:
+For axisymmetric flow in cylindrical coordinates $(r, z)$ with velocity components $(u, w)$ in the radial and axial directions, the governing equations in \textbf{conservation form} are:
 
 \subsubsection{Continuity Equation}
 
-The continuity equation for an incompressible fluid is:
 \begin{equation}
-    \parder{u}{r} + \frac{u}{r} + \parder{w}{z} = 0
+    \frac{1}{r}\parder{(r\,u)}{r} + \parder{w}{z} = 0
     \label{eq:continuity_dim}
 \end{equation}
 
 \subsubsection{Momentum Equations}
 
-The Navier-Stokes equations in cylindrical coordinates for axisymmetric flow are:
-
 \textbf{Radial momentum:}
 \begin{equation}
-    \parder{u}{t} + u\parder{u}{r} + w\parder{u}{z} = -\frac{1}{\rho}\parder{p}{r} + \nu\left(\pparder{u}{r} + \frac{1}{r}\parder{u}{r} - \frac{u}{r^2} + \pparder{u}{z}\right)
+    \parder{u}{t} + \frac{1}{r}\parder{(r\,u^2)}{r} + \parder{(u\,w)}{z}
+    = -\frac{1}{\rho}\parder{p}{r}
+      + \frac{1}{\rho}\left[\frac{1}{r}\parder{(r\,\tau_{rr})}{r} - \frac{\tau_{\varphi\varphi}}{r} + \parder{\tau_{rz}}{z}\right]
     \label{eq:momentum_r_dim}
 \end{equation}
 
 \textbf{Axial momentum:}
 \begin{equation}
-    \parder{w}{t} + u\parder{w}{r} + w\parder{w}{z} = -\frac{1}{\rho}\parder{p}{z} + \nu\left(\pparder{w}{r} + \frac{1}{r}\parder{w}{r} + \pparder{w}{z}\right)
+    \parder{w}{t} + \frac{1}{r}\parder{(r\,u\,w)}{r} + \parder{(w^2)}{z}
+    = -\frac{1}{\rho}\parder{p}{z}
+      + \frac{1}{\rho}\left[\frac{1}{r}\parder{(r\,\tau_{rz})}{r} + \parder{\tau_{zz}}{z}\right]
     \label{eq:momentum_z_dim}
 \end{equation}
 
-where $\nu = \mu/\rho$ is the kinematic viscosity.
+where the stress tensor components for a Newtonian fluid are:
+\begin{equation}
+    \tau_{rr} = 2\mu\parder{u}{r}, \quad
+    \tau_{\varphi\varphi} = 2\mu\frac{u}{r}, \quad
+    \tau_{zz} = 2\mu\parder{w}{z}, \quad
+    \tau_{rz} = \mu\left(\parder{u}{z} + \parder{w}{r}\right)
+\end{equation}
 
 \subsubsection{Energy Equation}
 
-The energy equation (neglecting viscous dissipation) is:
 \begin{equation}
-    \parder{T}{t} + u\parder{T}{r} + w\parder{T}{z} = \alpha\left(\pparder{T}{r} + \frac{1}{r}\parder{T}{r} + \pparder{T}{z}\right)
+    \parder{T}{t} + \frac{1}{r}\parder{(r\,u\,T)}{r} + \parder{(w\,T)}{z}
+    = \frac{\lambda}{\rho c_v}\left[\frac{1}{r}\parder{}{r}\!\left(r\parder{T}{r}\right) + \pparder{T}{z}\right]
     \label{eq:energy_dim}
 \end{equation}
-
-where $\alpha = \lambda/(\rho c_v)$ is the thermal diffusivity.
 
 \subsection{Boundary Conditions}
 
 \textbf{Inlet} ($z = 0$):
-\begin{align}
-    u(r, 0) &= 0 \\
-    w(r, 0) &= W_{\text{in}} \\
-    T(r, 0) &= T_{\text{in}}
-\end{align}
+\begin{equation}
+    u = 0, \quad w = W_{\text{in}}, \quad T = T_{\text{in}}
+\end{equation}
 
 \textbf{Wall} ($r = D/2$):
-\begin{align}
-    u(D/2, z) &= 0 \\
-    w(D/2, z) &= 0 \\
-    -\lambda\parder{T}{r}\bigg|_{r=D/2} &= q_w
-\end{align}
-
-\textbf{Centerline} ($r = 0$, symmetry):
-\begin{align}
-    \parder{u}{r}\bigg|_{r=0} &= 0 \quad \text{(or } u(0,z) = 0\text{)}\\
-    \parder{w}{r}\bigg|_{r=0} &= 0 \\
-    \parder{T}{r}\bigg|_{r=0} &= 0
-\end{align}
-
-\textbf{Outlet} ($z = L$):
 \begin{equation}
-    \parder{u}{z}\bigg|_{z=L} = 0, \quad \parder{w}{z}\bigg|_{z=L} = 0, \quad \parder{T}{z}\bigg|_{z=L} = 0
+    u = 0, \quad w = 0, \quad -\lambda\parder{T}{r}\bigg|_{r=D/2} = q_w
+\end{equation}
+
+\textbf{Centreline} ($r = 0$, symmetry):
+\begin{equation}
+    u = 0, \quad \parder{w}{r}\bigg|_{r=0} = 0, \quad \parder{T}{r}\bigg|_{r=0} = 0
+\end{equation}
+
+\textbf{Outlet} ($z = L$, zero-gradient):
+\begin{equation}
+    \parder{u}{z} = 0, \quad \parder{w}{z} = 0, \quad \parder{T}{z} = 0
 \end{equation}
 
 \newpage
 
-\section{Non-Dimensionalization}
+\subsection{Non-Dimensionalization}
 
-\subsection{Reference Scales}
-
-We introduce the following reference scales:
+\subsubsection{Reference Scales}
 \begin{itemize}
     \item Length: $D$
     \item Velocity: $W_{\text{in}}$
     \item Pressure: $\rho W_{\text{in}}^2$
-    \item Temperature difference: $\frac{q_w}{\rho c_v W_{\text{in}}}$
+    \item Temperature difference: $\dfrac{q_w}{\rho c_v W_{\text{in}}}$
+    \item Time: $D / W_{\text{in}}$
 \end{itemize}
 
-\subsection{Non-Dimensional Variables}
-
-Define the non-dimensional variables (denoted with asterisks):
+\subsubsection{Non-Dimensional Variables}
 \begin{align}
-    r^* &= \frac{r}{D}, \quad z^* = \frac{z}{D} \\
-    u^* &= \frac{u}{W_{\text{in}}}, \quad w^* = \frac{w}{W_{\text{in}}} \\
-    p^* &= \frac{p}{\rho W_{\text{in}}^2} \\
-    \theta &= \frac{(T - T_{\text{in}})\rho c_v W_{\text{in}}}{q_w} \\
-    t^* &= \frac{t W_{\text{in}}}{D}
+    r^* &= \frac{r}{D}, \quad z^* = \frac{z}{D}, \quad t^* = \frac{t\,W_{\text{in}}}{D} \\[6pt]
+    u^* &= \frac{u}{W_{\text{in}}}, \quad w^* = \frac{w}{W_{\text{in}}}, \quad
+    p^* = \frac{p}{\rho W_{\text{in}}^2} \\[6pt]
+    \theta &= \frac{(T - T_{\text{in}})\,\rho\, c_v\, W_{\text{in}}}{q_w}
 \end{align}
 
-\subsection{Non-Dimensional Governing Equations}
+\subsubsection{Non-Dimensional Governing Equations}
 
-Substituting the non-dimensional variables into equations~\eqref{eq:continuity_dim}--\eqref{eq:energy_dim} yields:
+Dropping asterisks for brevity (all quantities are non-dimensional hereafter):
 
-\subsubsection{Non-Dimensional Continuity}
+\textbf{Continuity:}
 \begin{equation}
-    \parder{u^*}{r^*} + \frac{u^*}{r^*} + \parder{w^*}{z^*} = 0
-    \label{eq:continuity_nondim}
+    \frac{1}{r}\parder{(r\,u)}{r} + \parder{w}{z} = 0
+    \label{eq:continuity_nd}
 \end{equation}
-
-\subsubsection{Non-Dimensional Momentum Equations}
 
 \textbf{Radial momentum:}
 \begin{equation}
-    \parder{u^*}{t^*} + u^*\parder{u^*}{r^*} + w^*\parder{u^*}{z^*} = -\parder{p^*}{r^*} + \frac{1}{\Rey}\left(\pparder{u^*}{r^*} + \frac{1}{r^*}\parder{u^*}{r^*} - \frac{u^*}{r^{*2}} + \pparder{u^*}{z^*}\right)
-    \label{eq:momentum_r_nondim}
+    \parder{u}{t} + \frac{1}{r}\parder{(r\,u^2)}{r} + \parder{(u\,w)}{z}
+    = -\parder{p}{r}
+      + \frac{1}{\Rey}\left[\frac{1}{r}\parder{}{r}\!\left(r\parder{u}{r}\right) - \frac{u}{r^2} + \pparder{u}{z}\right]
+    \label{eq:momentum_r_nd}
 \end{equation}
 
 \textbf{Axial momentum:}
 \begin{equation}
-    \parder{w^*}{t^*} + u^*\parder{w^*}{r^*} + w^*\parder{w^*}{z^*} = -\parder{p^*}{z^*} + \frac{1}{\Rey}\left(\pparder{w^*}{r^*} + \frac{1}{r^*}\parder{w^*}{r^*} + \pparder{w^*}{z^*}\right)
-    \label{eq:momentum_z_nondim}
+    \parder{w}{t} + \frac{1}{r}\parder{(r\,u\,w)}{r} + \parder{(w^2)}{z}
+    = -\parder{p}{z}
+      + \frac{1}{\Rey}\left[\frac{1}{r}\parder{}{r}\!\left(r\parder{w}{r}\right) + \pparder{w}{z}\right]
+    \label{eq:momentum_z_nd}
 \end{equation}
 
-\subsubsection{Non-Dimensional Energy Equation}
-
+\textbf{Energy:}
 \begin{equation}
-    \parder{\theta}{t^*} + u^*\parder{\theta}{r^*} + w^*\parder{\theta}{z^*} = \frac{1}{\Rey\Pran}\left(\pparder{\theta}{r^*} + \frac{1}{r^*}\parder{\theta}{r^*} + \pparder{\theta}{z^*}\right)
-    \label{eq:energy_nondim}
+    \parder{\theta}{t} + \frac{1}{r}\parder{(r\,u\,\theta)}{r} + \parder{(w\,\theta)}{z}
+    = \frac{1}{\Rey\Pran}\left[\frac{1}{r}\parder{}{r}\!\left(r\parder{\theta}{r}\right) + \pparder{\theta}{z}\right]
+    \label{eq:energy_nd}
 \end{equation}
 
-\subsection{Non-Dimensional Boundary Conditions}
+\subsubsection{Non-Dimensional Boundary Conditions}
 
-\textbf{Inlet} ($z^* = 0$):
-\begin{equation}
-    u^* = 0, \quad w^* = 1, \quad \theta = 0
-\end{equation}
+\textbf{Inlet} ($z = 0$):
+$\;u = 0,\; w = 1,\; \theta = 0$
 
-\textbf{Wall} ($r^* = 1/2$):
-\begin{equation}
-    u^* = 0, \quad w^* = 0, \quad \parder{\theta}{r^*} = -1
-\end{equation}
+\textbf{Wall} ($r = 1/2$):
+$\;u = 0,\; w = 0,\; \partial\theta/\partial r = -1$
 
-\textbf{Centerline} ($r^* = 0$):
-\begin{equation}
-    \parder{u^*}{r^*} = 0 \text{ (or } u^* = 0\text{)}, \quad \parder{w^*}{r^*} = 0, \quad \parder{\theta}{r^*} = 0
-\end{equation}
+\textbf{Centreline} ($r = 0$):
+$\;u = 0,\; \partial w/\partial r = 0,\; \partial\theta/\partial r = 0$
 
-\textbf{Outlet} ($z^* = L/D = 50$):
-\begin{equation}
-    \parder{u^*}{z^*} = 0, \quad \parder{w^*}{z^*} = 0, \quad \parder{\theta}{z^*} = 0
-\end{equation}
+\textbf{Outlet} ($z = 50$):
+$\;\partial u/\partial z = 0,\; \partial w/\partial z = 0,\; \partial\theta/\partial z = 0$
 
 \newpage
 
+% ============================================================================
+% 3. NUMERICAL SOLUTION
+% ============================================================================
 \section{Numerical Solution}
 
-\subsection{Computational Domain}
+\subsection{Computational Domain and Grid}
 
-The computational domain is rectangular in the $(r^*, z^*)$ plane:
+The computational domain is:
 \begin{equation}
-    \Omega = \{(r^*, z^*) : 0 \leq r^* \leq 0.5, \quad 0 \leq z^* \leq 50\}
+    \Omega = \{(r, z) : 0 \leq r \leq 0.5, \quad 0 \leq z \leq 50\}
 \end{equation}
 
-\subsection{Grid Structure}
-
-A staggered grid arrangement is employed:
+A \textbf{staggered grid} (MAC grid) is used:
 \begin{itemize}
-    \item \textbf{Scalar variables} ($p^*$, $\theta$): stored at cell centers
-    \item \textbf{Velocity components}: stored at cell faces
-    \begin{itemize}
-        \item $u^*$: stored at radial faces (between cells in $r$-direction)
-        \item $w^*$: stored at axial faces (between cells in $z$-direction)
-    \end{itemize}
+    \item Scalar variables ($p$, $\theta$): cell centres $(r_{c,i},\, z_{c,j})$
+    \item Radial velocity $u$: radial faces $(r_{f,i},\, z_{c,j})$
+    \item Axial velocity $w$: axial faces $(r_{c,i},\, z_{f,j})$
 \end{itemize}
 
-Grid parameters:
-\begin{itemize}
-    \item Number of cells in radial direction: $n_r$
-    \item Number of cells in axial direction: $n_z$
-    \item Uniform grid spacing: $\Delta r^* = 0.5/n_r$, $\Delta z^* = 50/n_z$
-\end{itemize}
+Grid parameters: $n_r = 50$ cells radially, $n_z = 250$ cells axially, giving:
+\begin{equation}
+    \Delta r = \frac{0.5}{n_r} = 0.01, \qquad \Delta z = \frac{50}{n_z} = 0.2
+\end{equation}
 
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.95\textwidth]{../Plots_python/grid_structure_diagram.png}
-    \caption{Staggered grid structure showing storage locations of variables. Scalars ($p^*$, $\theta$) are stored at cell centers (blue circles), axial velocity $w^*$ at vertical faces (green squares), and radial velocity $u^*$ at horizontal faces (red triangles). The highlighted control volume $CV_{i,j}$ shows the indexing convention.}
+    \caption{Staggered grid structure. Scalars ($p$, $\theta$) at cell centres,
+             axial velocity $w$ at vertical faces, radial velocity $u$ at horizontal faces.}
     \label{fig:grid_structure}
 \end{figure}
 
-The staggered arrangement (Figure~\ref{fig:grid_structure}) prevents pressure-velocity coupling issues that can arise with collocated grids. Velocity components are naturally stored at locations where mass fluxes through control volume faces are computed.
+\subsection{Spatial Discretization: Finite Volume Method}
 
-\subsection{Spatial Discretization}
+The governing equations are integrated over each control volume using the FVM.
+After applying Gauss' divergence theorem, the volume integrals become surface flux integrals that are evaluated at control-volume faces.
 
-The governing equations are discretized using the \textbf{Finite Volume Method} with \textbf{second-order accuracy}.
+\subsubsection{Continuity (at scalar CV)}
 
-\subsubsection{Continuity Equation Discretization}
-
-Integrating equation~\eqref{eq:continuity_nondim} over a control volume and applying Gauss divergence theorem:
 \begin{equation}
-    \left[\frac{(r^*u^*)_e - (r^*u^*)_w}{r^*_P\Delta r^*}\right] + \left[\frac{w^*_n - w^*_s}{\Delta z^*}\right] = 0
+    \frac{r_{i+\frac{1}{2}}\,u_{i+1,j} - r_{i-\frac{1}{2}}\,u_{i,j}}{r_{c,i}\,\Delta r}
+    + \frac{w_{i,j+1} - w_{i,j}}{\Delta z} = 0
+    \label{eq:div_discrete}
 \end{equation}
 
-where subscripts $e, w, n, s$ denote east, west, north, south faces, and $P$ denotes the cell center.
+\subsubsection{Convective Scheme: First-Order Upwind}
 
-\subsubsection{Convection-Diffusion Discretization}
-
-For the momentum and energy equations, we discretize the convective and diffusive terms:
-
-\textbf{Convective terms} (second-order central differencing):
+Central differencing requires the cell Peclet number $\text{Pe} = |v|\,\Delta x / (\nu_{\text{eff}})$ to satisfy $\text{Pe} < 2$.
+For our grid:
 \begin{equation}
-    u^*\parder{\phi}{r^*} \approx u^*_e\frac{\phi_E - \phi_P}{\Delta r^*}
+    \text{Pe}_z = |w|\,\Delta z\,\Rey = 1 \times 0.2 \times 100 = 20 \gg 2
 \end{equation}
 
-\textbf{Diffusive terms} (second-order central differencing):
+Central differencing is therefore unstable. We use \textbf{first-order upwind differencing} for convective terms:
+at each face the transported quantity is evaluated from the \textit{upwind} side of the face, based on the sign of the transporting velocity.
+
+For a generic flux $F = v\,\phi$ at a face:
 \begin{equation}
-    \pparder{\phi}{r^*} \approx \frac{\phi_E - 2\phi_P + \phi_W}{(\Delta r^*)^2}
+    \phi_{\text{face}} =
+    \begin{cases}
+        \phi_L & \text{if } v_{\text{face}} > 0 \\
+        \phi_R & \text{if } v_{\text{face}} < 0
+    \end{cases}
 \end{equation}
+
+Diffusive terms retain standard \textbf{second-order central differencing}.
+
+\subsubsection{Axial Momentum (at w-face CV)}
+
+The w-CV at $(r_{c,i},\, z_{f,j})$ spans $[r_{f,i},\, r_{f,i+1}] \times [z_{c,j-1},\, z_{c,j}]$.
+
+\textbf{Predictor step} (without pressure gradient):
+\begin{equation}
+\boxed{
+    w^*_{i,j} = w^n_{i,j} + \Delta t\left(-C_r^w - C_z^w + D_r^w + D_z^w\right)
+}
+\label{eq:predictor_w}
+\end{equation}
+
+where the convective terms (upwind) are:
+\begin{align}
+    C_r^w &= \frac{r_{i+\frac{1}{2}}\,u_E\,w_{E,\text{up}} - r_{i-\frac{1}{2}}\,u_I\,w_{I,\text{up}}}{r_{c,i}\,\Delta r} \\
+    C_z^w &= \frac{\bar{w}_N\,w_{N,\text{up}} - \bar{w}_S\,w_{S,\text{up}}}{\Delta z}
+\end{align}
+
+and the diffusive terms (central) are:
+\begin{align}
+    D_r^w &= \frac{1}{\Rey}\,\frac{r_{i+\frac{1}{2}}(w_{i+1,j}-w_{i,j}) - r_{i-\frac{1}{2}}(w_{i,j}-w_{i-1,j})}{r_{c,i}\,\Delta r^2} \\
+    D_z^w &= \frac{1}{\Rey}\,\frac{w_{i,j+1} - 2w_{i,j} + w_{i,j-1}}{\Delta z^2}
+\end{align}
+
+The radial momentum equation is discretized analogously at u-face control volumes.
 
 \subsection{Temporal Discretization}
 
-A second-order explicit time integration scheme is employed (e.g., second-order Adams-Bashforth or Runge-Kutta RK2).
-
-For a generic transport equation:
+Explicit Euler time stepping:
 \begin{equation}
-    \parder{\phi}{t^*} = F(\phi)
+    \phi^{n+1} = \phi^n + \Delta t\,F(\phi^n)
 \end{equation}
 
-\textbf{Second-order Adams-Bashforth:}
-\begin{equation}
-    \phi^{n+1} = \phi^n + \Delta t^*\left[\frac{3}{2}F(\phi^n) - \frac{1}{2}F(\phi^{n-1})\right]
-\end{equation}
+The time step $\Delta t = 0.002$ satisfies the stability constraints:
+\begin{itemize}
+    \item Convective CFL: $\Delta t / \Delta z = 0.01 \ll 1$
+    \item Viscous stability: $\Delta t\,(1/\Rey)\,(1/\Delta r^2 + 1/\Delta z^2) \approx 0.2 < 0.5$
+\end{itemize}
 
-\subsection{Pressure Correction Method}
+\subsection{Pressure Correction Method (Projection)}
 
-A segregated solution approach based on the \textbf{projection method} with pressure correction is used:
+A segregated approach is used. Each time step consists of:
 
 \begin{enumerate}
-    \item \textbf{Predictor step}: Solve momentum equations without pressure gradient to obtain intermediate velocities $u^{**}, w^{**}$
+    \item \textbf{Predictor}: Solve momentum without pressure gradient to obtain $u^*, w^*$.
 
-    \item \textbf{Pressure correction}: Solve the Poisson equation for pressure correction $p'$:
+    \item \textbf{Poisson equation}: Find pressure correction $p'$ such that the corrected velocity is divergence-free:
     \begin{equation}
-        \nabla^2 p' = \frac{\rho}{\Delta t}\nabla \cdot \bm{u}^{**}
+        \frac{1}{r}\parder{}{r}\!\left(r\parder{p'}{r}\right) + \pparder{p'}{z}
+        = \frac{1}{\Delta t}\left[\frac{1}{r}\parder{(r\,u^*)}{r} + \parder{w^*}{z}\right]
         \label{eq:poisson}
     \end{equation}
 
-    In non-dimensional form:
+    Discretized:
     \begin{equation}
-        \pparder{p'}{r^{*2}} + \frac{1}{r^*}\parder{p'}{r^*} + \pparder{p'}{z^{*2}} = \frac{1}{\Delta t^*}\left(\parder{u^{**}}{r^*} + \frac{u^{**}}{r^*} + \parder{w^{**}}{z^*}\right)
+        \frac{r_{i+\frac{1}{2}}(p'_{i+1,j}-p'_{i,j}) - r_{i-\frac{1}{2}}(p'_{i,j}-p'_{i-1,j})}{r_{c,i}\,\Delta r^2}
+        + \frac{p'_{i,j+1} - 2p'_{i,j} + p'_{i,j-1}}{\Delta z^2}
+        = b_{i,j}
     \end{equation}
 
     \item \textbf{Velocity correction}:
     \begin{align}
-        u^{n+1} &= u^{**} - \Delta t^*\parder{p'}{r^*} \\
-        w^{n+1} &= w^{**} - \Delta t^*\parder{p'}{z^*}
+        u^{n+1}_{i,j} &= u^*_{i,j} - \Delta t\,\frac{p'_{i,j} - p'_{i-1,j}}{\Delta r} \\
+        w^{n+1}_{i,j} &= w^*_{i,j} - \Delta t\,\frac{p'_{i,j} - p'_{i,j-1}}{\Delta z}
     \end{align}
 
-    \item \textbf{Pressure update}:
+    \item \textbf{Pressure update} with under-relaxation:
     \begin{equation}
-        p^{n+1} = p^n + \alpha_p p'
+        p^{n+1} = p^n + \alpha_p\,p', \qquad \alpha_p = 0.7
     \end{equation}
-    where $\alpha_p$ is an under-relaxation factor.
 \end{enumerate}
 
 \subsection{Poisson Solver}
 
-The Poisson equation~\eqref{eq:poisson} is solved using a direct solver. For cylindrical coordinates, the discretized Poisson equation yields a banded linear system:
+The Poisson equation~\eqref{eq:poisson} is assembled into a sparse linear system $\mathbf{A}\,\mathbf{p}' = \mathbf{b}$ of size $(n_r \cdot n_z) \times (n_r \cdot n_z)$.
+The matrix~$\mathbf{A}$ is assembled once and reused every time step.
+It is solved using MATLAB's built-in \textbf{direct sparse solver} (backslash operator \texttt{A\textbackslash b}), which employs LU decomposition for the sparse system.
+
+Boundary conditions for $p'$:
+\begin{itemize}
+    \item Centreline ($r=0$): Neumann $\partial p'/\partial r = 0$ (natural: $r_{-\frac{1}{2}} = 0$, flux vanishes)
+    \item Wall ($r=0.5$): Neumann $\partial p'/\partial r = 0$
+    \item Inlet ($z=0$): Neumann $\partial p'/\partial z = 0$
+    \item Outlet ($z=50$): Dirichlet $p' = 0$ (reference pressure)
+\end{itemize}
+
+\subsection{Ghost Cells and Boundary Implementation}
+
+Ghost cells are used to impose boundary conditions in the staggered grid.
+For each boundary, a ghost cell value is defined such that the appropriate condition is satisfied at the boundary face.
+
+\begin{table}[H]
+\centering
+\caption{Ghost cell values for each boundary.}
+\label{tab:ghost}
+\begin{tabular}{lllll}
+\toprule
+\textbf{Boundary} & $u_{\text{ghost}}$ & $w_{\text{ghost}}$ & $p_{\text{ghost}}$ & $\theta_{\text{ghost}}$ \\
+\midrule
+Centreline ($r=0$) & $u_g = 0$ & $w_g = w_1$ (symmetry) & $p_g = p_1$ & $\theta_g = \theta_1$ \\
+Wall ($r=0.5$) & $u_g = 0$ & $w_g = -w_{n_r}$ (no-slip) & $p_g = p_{n_r}$ & $\theta_g = \theta_{n_r} - \Delta r$ \\
+Inlet ($z=0$) & $u_g = -u_1$ & $w = 1$ (Dirichlet) & $p_g = p_1$ & $\theta = 0$ (Dirichlet) \\
+Outlet ($z=L$) & $u_g = u_{n_z}$ & $w_g = w_{n_z}$ & $p' = 0$ & $\theta_g = \theta_{n_z}$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The wall temperature ghost cell $\theta_g = \theta_{n_r} - \Delta r$ implements the Neumann condition $\partial\theta/\partial r = -1$ via central differencing:
 \begin{equation}
-    \mathbf{A}\mathbf{p}' = \mathbf{b}
+    \parder{\theta}{r}\bigg|_{\text{wall}} \approx \frac{\theta_g - \theta_{n_r}}{\Delta r} = \frac{-\Delta r}{\Delta r} = -1
 \end{equation}
 
-This system is solved using:
+\newpage
+
+% ============================================================================
+% 4. IMPLEMENTATION
+% ============================================================================
+\section{Implementation}
+
+\subsection{Code Structure}
+
+The solver is implemented in MATLAB.
+Table~\ref{tab:modules} lists all functions and their roles.
+
+\begin{table}[H]
+\centering
+\caption{MATLAB function structure.}
+\label{tab:modules}
+\begin{tabular}{lp{8.5cm}}
+\toprule
+\textbf{Function} & \textbf{Description} \\
+\midrule
+\texttt{constants.m}          & Returns struct with physical parameters ($\Rey$, $\Pran$), grid sizes, time step, tolerances \\
+\texttt{make\_grid.m}         & Generates staggered grid: $r_c$, $r_f$, $z_c$, $z_f$, $\Delta r$, $\Delta z$ \\
+\texttt{initialise\_fields.m} & Allocates fields ($u$, $w$, $p$, $\theta$) with uniform initial conditions \\
+\texttt{apply\_bc\_w.m}       & Enforces axial velocity BCs (inlet Dirichlet, outlet zero-gradient) \\
+\texttt{apply\_bc\_u.m}       & Enforces radial velocity BCs (axis and wall: $u=0$) \\
+\texttt{apply\_bc\_T.m}       & Enforces temperature BCs (inlet Dirichlet, outlet zero-gradient) \\
+\texttt{predictor\_w.m}       & Predictor step for $w^*$ (upwind convection, central diffusion) \\
+\texttt{predictor\_u.m}       & Predictor step for $u^*$ (upwind convection, central diffusion) \\
+\texttt{build\_poisson\_matrix.m} & Assembles sparse Poisson matrix $\mathbf{A}$ (called once) \\
+\texttt{solve\_poisson.m}     & Solves $\mathbf{A}\,\mathbf{p}' = \mathbf{b}$ using MATLAB backslash \\
+\texttt{correct\_velocity.m}  & Applies pressure-gradient correction to $u^*$, $w^*$ \\
+\texttt{update\_pressure.m}   & Updates pressure: $p^{n+1} = p^n + \alpha_p\,p'$ \\
+\texttt{advance\_temperature.m} & Advances $\theta$ by one explicit step (upwind convection) \\
+\texttt{compute\_divergence.m}   & Computes discrete divergence of velocity field \\
+\texttt{compute\_residuals.m}    & Computes convergence residuals ($R_{\text{cont}}$, $R_{\text{vel}}$, $R_{\theta}$) \\
+\texttt{check\_convergence.m}    & Returns true when all residuals are below tolerances \\
+\texttt{analytical\_velocity.m}  & Hagen--Poiseuille velocity profile \\
+\texttt{analytical\_temperature.m} & Analytical temperature profile for constant wall heat flux \\
+\texttt{main.m}               & Main script: initialisation $\to$ time stepping $\to$ post-processing and plotting \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Algorithm Flowchart}
+
+Figure~\ref{fig:flowchart} shows the algorithm implemented in \texttt{main.m}.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+    node distance=0.6cm,
+    startstop/.style={rectangle, rounded corners, minimum width=4.5cm, minimum height=0.8cm,
+                      text centered, draw=black, fill=blue!10, font=\small},
+    process/.style={rectangle, minimum width=5.5cm, minimum height=0.8cm,
+                    text centered, draw=black, fill=orange!10, font=\small},
+    decision/.style={diamond, aspect=2.5, minimum width=3cm, minimum height=0.8cm,
+                     text centered, draw=black, fill=green!10, font=\small},
+    io/.style={trapezium, trapezium left angle=70, trapezium right angle=110,
+               minimum width=4cm, minimum height=0.8cm,
+               text centered, draw=black, fill=yellow!10, font=\small},
+    arrow/.style={thick, -Stealth},
+    loop/.style={rectangle, rounded corners, draw=gray, dashed, inner sep=0.4cm}
+]
+
+% Nodes
+\node (start) [startstop] {Start};
+\node (grid) [process, below=of start] {Generate staggered grid};
+\node (init) [process, below=of grid] {Initialise fields ($u$, $w$, $p$, $\theta$)};
+\node (poisson_mat) [process, below=of init] {Assemble Poisson matrix $\mathbf{A}$ (once)};
+\node (bc0) [process, below=of poisson_mat] {Apply boundary conditions};
+
+\node (pred) [process, below=0.8cm of bc0] {Predictor: $w^*$, $u^*$ (upwind FVM)};
+\node (solve_p) [process, below=of pred] {Solve Poisson: $\mathbf{A}\,\mathbf{p}' = \mathbf{b}$};
+\node (correct) [process, below=of solve_p] {Correct: $u^{n+1}$, $w^{n+1}$, $p^{n+1}$};
+\node (temp) [process, below=of correct] {Advance temperature $\theta^{n+1}$};
+\node (bc1) [process, below=of temp] {Apply boundary conditions};
+\node (conv) [decision, below=0.6cm of bc1] {Converged?};
+
+\node (output) [io, below=0.8cm of conv] {Generate plots and save results};
+\node (stop) [startstop, below=of output] {End};
+
+% Time loop box
+\node[loop, fit=(pred)(solve_p)(correct)(temp)(bc1)(conv), label={[font=\small\bfseries]above:Time loop ($n = 1, \ldots, n_{\max}$)}] (timeloop) {};
+
+% Arrows
+\draw[arrow] (start) -- (grid);
+\draw[arrow] (grid) -- (init);
+\draw[arrow] (init) -- (poisson_mat);
+\draw[arrow] (poisson_mat) -- (bc0);
+\draw[arrow] (bc0) -- (pred);
+\draw[arrow] (pred) -- (solve_p);
+\draw[arrow] (solve_p) -- (correct);
+\draw[arrow] (correct) -- (temp);
+\draw[arrow] (temp) -- (bc1);
+\draw[arrow] (bc1) -- (conv);
+\draw[arrow] (conv) -- node[right, font=\small] {Yes} (output);
+\draw[arrow] (conv.east) -- ++(2,0) node[above, font=\small] {No} |- (pred.east);
+\draw[arrow] (output) -- (stop);
+
+\end{tikzpicture}
+\caption{Algorithm flowchart for the pipe flow solver.}
+\label{fig:flowchart}
+\end{figure}
+
+\subsection{Key Implementation Details}
+
 \begin{itemize}
-    \item \textbf{Direct method}: LU decomposition or Cholesky decomposition for banded matrices
-    \item \textbf{Iterative method}: Successive Over-Relaxation (SOR) or Conjugate Gradient
+    \item \textbf{Upwind differencing}: Convective fluxes in both momentum and energy equations use first-order upwind to avoid oscillations at high Peclet numbers ($\text{Pe}_z = 20$ for momentum, $\text{Pe}_{\theta} = 100$ for energy).
+
+    \item \textbf{Sparse direct solver}: The Poisson matrix ($12{,}500 \times 12{,}500$) is assembled once using MATLAB's \texttt{sparse} function and solved each time step with the backslash operator (\texttt{A\textbackslash b}).
+
+    \item \textbf{Vectorised operations}: All stencil computations are performed using MATLAB's array operations, avoiding explicit loops over grid cells for efficiency.
+
+    \item \textbf{Staggered grid}: Prevents checkerboard pressure oscillations; velocity components are stored at the faces where mass fluxes are naturally evaluated.
+
+    \item \textbf{Ghost cells}: All boundary conditions are implemented via ghost-cell extensions. The arrays are extended by one row/column using MATLAB array concatenation, and the boundary condition determines the ghost value. This avoids special-casing inside the stencil computations.
 \end{itemize}
 
 \newpage
 
+% ============================================================================
+% 5. ANALYTICAL SOLUTION
+% ============================================================================
 \section{Analytical Solution}
 
-For fully developed flow (at large $z^*$), analytical solutions exist:
+For fully developed flow (large $z$), analytical solutions exist for comparison.
 
-\subsection{Velocity Profile}
+\subsection{Velocity Profile (Hagen--Poiseuille)}
 
-The fully developed velocity profile is parabolic (Hagen-Poiseuille flow):
 \begin{equation}
-    \frac{w}{W_{\text{in}}} = 2\left[1 - \left(\frac{2r}{D}\right)^2\right] = 2\left[1 - (2r^*)^2\right]
+    \frac{w}{W_{\text{in}}} = 2\left[1 - (2r^*)^2\right]
     \label{eq:analytical_velocity}
 \end{equation}
 
-The centerline velocity is:
-\begin{equation}
-    w_{\text{max}} = 2W_{\text{in}}
-\end{equation}
+The centreline velocity is $w_{\max} = 2\,W_{\text{in}}$.
+The hydrodynamic entry length is approximately $L_h \approx 0.05\,\Rey\,D = 5D$.
 
 \subsection{Temperature Profile}
 
-The fully developed temperature profile for constant wall heat flux:
+For constant wall heat flux in fully developed thermal flow:
 \begin{equation}
-    \theta = \frac{(T - T_{\text{in}})\rho c_v W_{\text{in}}}{q_w} = 4\frac{z}{D} + \Rey\Pran\left[\left(\frac{2r}{D}\right)^2 - \frac{1}{4}\left(\frac{2r}{D}\right)^4 - \frac{3}{4}\right]
+    \theta = 4z^* + \Rey\Pran\left[(2r^*)^2 - \frac{1}{4}(2r^*)^4 - \frac{3}{4}\right]
     \label{eq:analytical_temperature}
 \end{equation}
 
-or in non-dimensional form:
-\begin{equation}
-    \theta = 4z^* + \Rey\Pran\left[(2r^*)^2 - \frac{1}{4}(2r^*)^4 - \frac{3}{4}\right]
-\end{equation}
+The thermal entry length is $L_t \approx 0.05\,\Rey\,\Pran\,D = 25D$.
 
 \subsection{Nusselt Number}
 
-For fully developed thermal flow with constant wall heat flux (H1 boundary condition):
+For fully developed thermal flow with constant wall heat flux:
 \begin{equation}
     \text{Nu} = \frac{48}{11} \approx 4.364
 \end{equation}
 
 \newpage
 
+% ============================================================================
+% 6. RESULTS
+% ============================================================================
 \section{Results}
 
-\subsection{Convergence Criteria}
+\subsection{Simulation Parameters}
 
-The simulation is run until convergence is achieved. Convergence is monitored using residuals:
+\begin{table}[H]
+\centering
+\caption{Simulation parameters.}
+\label{tab:params}
+\begin{tabular}{lll}
+\toprule
+\textbf{Parameter} & \textbf{Value} & \textbf{Description} \\
+\midrule
+$\Rey$ & 100 & Reynolds number \\
+$\Pran$ & 5 & Prandtl number \\
+$n_r \times n_z$ & $50 \times 250$ & Grid resolution \\
+$\Delta r$ & 0.01 & Radial grid spacing \\
+$\Delta z$ & 0.2 & Axial grid spacing \\
+$\Delta t$ & 0.002 & Time step \\
+$n_{\text{steps}}$ & 30\,000 & Maximum time steps \\
+$\alpha_p$ & 0.7 & Pressure under-relaxation \\
+Convective scheme & First-order upwind & Stability for Pe $\gg 2$ \\
+\bottomrule
+\end{tabular}
+\end{table}
 
-\textbf{Continuity residual:}
+\subsection{Convergence History}
+
+The simulation is considered converged when the continuity, velocity, and temperature residuals fall below $10^{-6}$:
 \begin{equation}
-    R_{\text{cont}} = \max_{i,j}\left|\parder{u^*}{r^*} + \frac{u^*}{r^*} + \parder{w^*}{z^*}\right|_{i,j}
+    R_{\text{cont}} = \max_{i,j}|\nabla\cdot\mathbf{u}|, \quad
+    R_{\text{vel}} = \frac{\max|w^{n+1}-w^n|}{\Delta t}, \quad
+    R_{\theta} = \frac{\max|\theta^{n+1}-\theta^n|}{\Delta t}
 \end{equation}
 
-\textbf{Velocity residual:}
-\begin{equation}
-    R_{\text{vel}} = \max\left(\frac{\|u^{n+1} - u^n\|}{\Delta t}, \frac{\|w^{n+1} - w^n\|}{\Delta t}\right)
-\end{equation}
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{../Plots_matlab/convergence.png}
+    \caption{Convergence history: residuals versus time step.}
+    \label{fig:convergence}
+\end{figure}
 
-\textbf{Temperature residual:}
-\begin{equation}
-    R_{\text{temp}} = \frac{\|\theta^{n+1} - \theta^n\|}{\Delta t}
-\end{equation}
+\subsection{Velocity Field}
 
-Convergence is declared when:
-\begin{equation}
-    R_{\text{cont}} < 10^{-6}, \quad R_{\text{vel}} < 10^{-6}, \quad R_{\text{temp}} < 10^{-6}
-\end{equation}
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.95\textwidth]{../Plots_matlab/w_contour.png}
+    \caption{Axial velocity contour $w/W_{\text{in}}$.
+             The flow transitions from a uniform inlet profile ($w=1$) to a parabolic profile ($w_{\max}=2$ at centreline).}
+    \label{fig:w_contour}
+\end{figure}
 
-\subsection{Expected Results}
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.95\textwidth]{../Plots_matlab/u_contour.png}
+    \caption{Radial velocity contour $u/W_{\text{in}}$.
+             Non-zero only in the entrance region where the flow is developing; vanishes as the flow becomes fully developed.}
+    \label{fig:u_contour}
+\end{figure}
 
-The following results will be presented:
+\subsection{Temperature Field}
 
-\begin{enumerate}
-    \item \textbf{Velocity field contours}: $w^*(r^*, z^*)$ and $u^*(r^*, z^*)$
-    \item \textbf{Temperature field contours}: $\theta(r^*, z^*)$
-    \item \textbf{Velocity profiles}: $w^*(r^*)$ at selected axial positions $z^* = \{5, 10, 20, 30, 40, 50\}$
-    \item \textbf{Temperature profiles}: $\theta(r^*)$ at selected axial positions
-    \item \textbf{Comparison with analytical solutions}: Equations~\eqref{eq:analytical_velocity} and~\eqref{eq:analytical_temperature}
-    \item \textbf{Convergence history}: Plot of residuals vs. iteration/time step
-\end{enumerate}
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.95\textwidth]{../Plots_matlab/theta_contour.png}
+    \caption{Non-dimensional temperature contour $\theta$.
+             Temperature increases along the pipe due to the constant wall heat flux.}
+    \label{fig:theta_contour}
+\end{figure}
 
-\section{Conclusion}
+\subsection{Velocity Profiles at Selected Axial Positions}
 
-This report presents the mathematical formulation, non-dimensionalization, and numerical solution strategy for simulating the developing flow in a heated cylindrical pipe. The finite volume method with second-order spatial and temporal discretization is employed, along with a pressure correction method for enforcing the continuity constraint. The Poisson equation for pressure correction is solved using a direct solver. Results will be validated against analytical solutions for fully developed flow.
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.85\textwidth]{../Plots_matlab/w_profiles.png}
+    \caption{Axial velocity profiles $w(r)$ at $z^* = 5, 10, 20, 30, 40, 50$.
+             Dashed lines show the analytical Hagen--Poiseuille profile.
+             The velocity profile develops from uniform at the inlet to parabolic downstream.}
+    \label{fig:w_profiles}
+\end{figure}
+
+\subsection{Temperature Profiles at Selected Axial Positions}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.85\textwidth]{../Plots_matlab/T_profiles.png}
+    \caption{Non-dimensional temperature profiles $\theta(r)$ at selected axial positions.
+             Dashed lines show the analytical fully-developed solution~\eqref{eq:analytical_temperature}.}
+    \label{fig:T_profiles}
+\end{figure}
+
+\subsection{Comparison with Analytical Solution}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.85\textwidth]{../Plots_matlab/w_comparison.png}
+    \caption{Velocity profile at $z^* = 50$ (fully developed): numerical vs.\ analytical Hagen--Poiseuille solution.}
+    \label{fig:w_comparison}
+\end{figure}
 
 \newpage
 
+% ============================================================================
+% 7. CONCLUSION
+% ============================================================================
+\section{Conclusion}
+
+A finite volume solver for 2D axisymmetric incompressible pipe flow was developed in MATLAB and validated against analytical solutions.
+The solver uses a staggered grid with first-order upwind differencing for convective stability and a projection method with a sparse direct Poisson solver for pressure correction.
+
+The numerical results reproduce the expected physics:
+\begin{itemize}
+    \item The velocity field develops from a uniform inlet profile to the parabolic Hagen--Poiseuille profile within the hydrodynamic entry length.
+    \item The temperature field shows the characteristic linear increase along the pipe axis and the radial profile matches the analytical solution for constant wall heat flux.
+    \item The comparison at $z^* = 50$ shows good agreement between the numerical and analytical solutions for both velocity and temperature.
+\end{itemize}
+
+\newpage
+
+% ============================================================================
+% APPENDIX A: FULL FVM DERIVATION
+% ============================================================================
 \appendix
 
-\input{derivation_cylindrical_coordinates}
+% The following appendix provides the complete FVM derivation including
+% projection method, Poisson solver procedure, and ghost-cell BCs.
+\input{2_2D_cylindrical_coordinates_uw}
+\label{app:derivation}
+
+\newpage
+
+% ============================================================================
+% APPENDIX B: MATLAB SOURCE CODE
+% ============================================================================
+\section{MATLAB Source Code}
+\label{app:code}
+
+The complete source code is provided below for the key solver functions.
+
+\subsection{Main Simulation Script}
+\lstinputlisting[caption={main.m --- Main simulation loop and plotting}, label={lst:main}]{../src_matlab/main.m}
+
+\subsection{Grid Generation}
+\lstinputlisting[caption={make\_grid.m --- Staggered grid generation}, label={lst:grid}]{../src_matlab/make_grid.m}
+
+\subsection{Boundary Conditions}
+\lstinputlisting[caption={apply\_bc\_w.m --- Axial velocity boundary conditions}, label={lst:bcw}]{../src_matlab/apply_bc_w.m}
+\lstinputlisting[caption={apply\_bc\_u.m --- Radial velocity boundary conditions}, label={lst:bcu}]{../src_matlab/apply_bc_u.m}
+\lstinputlisting[caption={apply\_bc\_T.m --- Temperature boundary conditions}, label={lst:bcT}]{../src_matlab/apply_bc_T.m}
+
+\subsection{Momentum Solver}
+\lstinputlisting[caption={predictor\_w.m --- Axial momentum predictor with upwind convection}, label={lst:predw}]{../src_matlab/predictor_w.m}
+\lstinputlisting[caption={predictor\_u.m --- Radial momentum predictor with upwind convection}, label={lst:predu}]{../src_matlab/predictor_u.m}
+
+\subsection{Poisson Solver and Pressure Correction}
+\lstinputlisting[caption={build\_poisson\_matrix.m --- Sparse Poisson matrix assembly}, label={lst:buildA}]{../src_matlab/build_poisson_matrix.m}
+\lstinputlisting[caption={solve\_poisson.m --- Poisson solve using MATLAB backslash}, label={lst:solveP}]{../src_matlab/solve_poisson.m}
+\lstinputlisting[caption={correct\_velocity.m --- Velocity correction step}, label={lst:correct}]{../src_matlab/correct_velocity.m}
+
+\subsection{Temperature Solver}
+\lstinputlisting[caption={advance\_temperature.m --- Energy equation with upwind convection}, label={lst:temperature}]{../src_matlab/advance_temperature.m}
+
+\subsection{Convergence Monitoring}
+\lstinputlisting[caption={compute\_residuals.m --- Residual computation}, label={lst:residuals}]{../src_matlab/compute_residuals.m}
+\lstinputlisting[caption={check\_convergence.m --- Convergence check}, label={lst:convergence}]{../src_matlab/check_convergence.m}
 
 \end{document}

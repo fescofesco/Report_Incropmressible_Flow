@@ -1,0 +1,62 @@
+\section{Stress Tensor Components in Cylindrical Coordinates}
+
+\subsection{Normal Stresses}
+
+The normal stress components in cylindrical coordinates are:
+
+\textbf{Radial normal stress:}
+\begin{equation}
+    \tau_{rr} = 2\mu \frac{\partial u}{\partial r}
+\end{equation}
+
+\textbf{Azimuthal normal stress:}
+\begin{equation}
+    \tau_{\phi\phi} = 2\mu \left(\frac{1}{r}\frac{\partial v}{\partial \phi} + \frac{u}{r}\right)
+\end{equation}
+
+\textbf{Axial normal stress:}
+\begin{equation}
+    \tau_{zz} = 2\mu \frac{\partial w}{\partial z}
+\end{equation}
+
+\subsection{Shear Stresses}
+
+The shear stress components are:
+
+\textbf{Radial-azimuthal shear stress:}
+\begin{equation}
+    \tau_{r\phi} = \mu \left( r\frac{\partial}{\partial r}\left(\frac{v}{r}\right) + \frac{1}{r}\frac{\partial u}{\partial \phi}\right)
+\end{equation}
+
+\textbf{Radial-axial shear stress:}
+\begin{equation}
+    \tau_{rz} = \mu \left(\frac{\partial u}{\partial z} + \frac{\partial w}{\partial r}\right)
+\end{equation}
+
+\textbf{Azimuthal-axial shear stress:}
+\begin{equation}
+    \tau_{\phi z} = \mu \left(\frac{1}{r}\frac{\partial w}{\partial \phi} + \frac{\partial v}{\partial z}\right)
+\end{equation}
+
+\subsection{For Axisymmetric Flow}
+
+For axisymmetric flow ($v = 0$, $\partial/\partial\phi = 0$), the relevant stress components simplify to:
+
+\begin{align}
+    \tau_{rr} &= 2\mu \frac{\partial u}{\partial r} \\
+    \tau_{\phi\phi} &= 2\mu \frac{u}{r} \\
+    \tau_{zz} &= 2\mu \frac{\partial w}{\partial z} \\
+    \tau_{rz} &= \mu \left(\frac{\partial u}{\partial z} + \frac{\partial w}{\partial r}\right)
+\end{align}
+
+\subsection{Differential Volume Element}
+
+The differential volume element in cylindrical coordinates:
+\begin{equation}
+    dV = r\,dr\,d\phi\,dz
+\end{equation}
+
+For axisymmetric flow integrated over the full circumference:
+\begin{equation}
+    dV = 2\pi r\,dr\,dz
+\end{equation}
