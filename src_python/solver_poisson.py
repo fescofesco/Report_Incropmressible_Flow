@@ -207,16 +207,28 @@ def correct_velocity(u_star, w_star, p_prime, r_f, dr, dz, dt, n_r, n_z):
 
 def update_pressure(p, p_prime, zeta):
     """
-    p^{n+1} = p^n + ζ · p'
+    p^{n+1} = p^n + ζ · (p' − p^n) = (1−ζ)·p^n + ζ·p'
+
+    NOTE: this is a *relaxed blend towards p'*, not an accumulation of p'
+    onto p^n. Because the momentum predictor here excludes the pressure
+    gradient entirely (a non-incremental / Chorin-type projection, not the
+    incremental-pressure-correction scheme), p' as computed by solve_poisson
+    already IS the full physical pressure for this step (dimensionally
+    consistent with du/dt = -grad(p) + ...), not a small correction that
+    should accumulate. Naively doing p^{n+1} = p^n + ζ·p' (additive) makes
+    p grow roughly linearly in time even after the flow reaches steady
+    state, since p' does not vanish at steady state under this splitting
+    (unlike the incremental scheme, where the predictor already carries the
+    previous pressure gradient and p' -> 0 at convergence).
 
     Parameters
     ----------
     p       : ndarray (n_r, n_z)
     p_prime : ndarray (n_r, n_z)
-    zeta    : float   under-relaxation factor (e.g. 0.5)
+    zeta    : float   relaxation factor towards the freshly solved p' (e.g. 0.7)
 
     Returns
     -------
     p_new : ndarray (n_r, n_z)
     """
-    return p + zeta * p_prime
+    return p + zeta * (p_prime - p)

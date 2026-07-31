@@ -119,37 +119,50 @@ derivation I didn't attempt. If you correct the `(2r*)²`/`(2r*)⁴` coefficient
 be re-derived or checked against your lecture notes too, rather than assumed to just halve along
 with the other terms.
 
-## E) Empirical confirmation from the fixed CFD solver
+## E) Empirical confirmation from the fixed CFD solver — CORRECTED
 
-After fixing the wall BC (magnitude `Re·Pr`) and upgrading the solver to 2nd-order
-(RK2 in time, 2nd-order upwind in space), I ran the actual simulation for 10,000 steps
-(velocity field already converged to machine precision well before this) and read off
-`θ` directly from the computed field at `z*=44.9` (Re=100, Pr=5, so `Re·Pr=500`):
+**An earlier version of this section had two errors, caught in review, both now fixed:**
 
-| Quantity | Numerical (from the simulation) | PDF formula as transcribed | Formula corrected (halved radial terms) |
-|---|---|---|---|
-| `θ_wall − θ_center` | **111.2** | 369.9 | 185.0 |
-| `∂θ/∂r*` near wall (one-sided FD) | **488** (vs. enforced BC of 500) | — | — |
-| Implied Nu (`= 2·Re·Pr/(θ_wall−θ_center)`, since `Nu=hD/λ`, `D=2R`) | **≈ 4.5** (close to 48/11≈4.36) | ≈ 2.7 | ≈ 2.68 |
+1. **Wrong quantity.** It compared `θ_wall − θ_center` (centerline) against the Nu
+   correlation, but the standard definition of the bulk/mean temperature used in
+   `Nu = h·D/λ`, `h = q_w/(T_wall − T_bulk)` is the flow-weighted (mixing-cup) average
+   over the cross-section, `θ_bulk = ∫w·θ·r dr / ∫w·r dr`, which is *not* the same as
+   the centerline value. The correct check is `Nu = Re·Pr/(θ_wall − θ_bulk)` (derived
+   in section D) — there is no factor of 2 in this formula.
 
-The simulation — built only from the governing PDEs and the independently-derived wall
-BC, with no reference to the fully-developed formula at all — reproduces `θ_wall −
-θ_center` within ~3% of the classic `Nu = 48/11` result, and lands nowhere near what the
-PDF-transcribed comparison formula predicts (3.3× too high). This is strong additional,
-independent evidence (on top of the four derivations in section D) that the formula as
-transcribed from the assignment PDF has the radial-term-coefficient error described
-above. Note `z*=44.9` isn't perfectly at the fully-developed asymptote (thermal entry
-length ≈ `0.05·Re·Pr·D = 25`, so `z*=45` is ~1.8 entry lengths in — close but not exact),
-which is presumably why even the "corrected" formula (185.0) doesn't match the
-simulation (111.2) exactly yet; a comparison at `z*=50` after the full 30,000-step run,
-or a formal grid/z-convergence study, would tighten this further.
+2. **Wrong run length for the z-position checked.** The mean non-dimensional velocity
+   is exactly 1, so a fluid parcel takes roughly `z*` non-dimensional time units to
+   convect from the inlet to axial position `z*`. The original check ran only 10,000
+   steps (`t*=20`) but read off `θ` at `z*=44.9` (needs `t*≈45` just to be reached at
+   all) — the field there was still dominated by the initial condition heating in
+   place, not by flow that had actually come from the inlet.
+
+**Corrected check**, using the full 30,000-step run (`t*=60`) and the properly-defined
+`θ_bulk`, at three axial positions with decreasing settling margin (`t* − z*`, the time
+elapsed since the thermal front passed that location):
+
+| `z*` | margin `t*−z*` | `θ_bulk` (numerical) | `4z*` (expected) | `θ_wall−θ_bulk` | `Nu` | classic `Nu=48/11` |
+|---|---|---|---|---|---|---|
+| 29.9 | 30.1 | 118.46 | 119.6 | 109.04 | **4.585** | 4.364 |
+| 39.9 | 20.1 | 154.98 | 159.6 | 105.90 | **4.722** | 4.364 |
+| 48.9 | 11.1 | 181.14 | 195.6 | 99.25  | **5.038** | 4.364 |
+
+The global energy balance (`θ_bulk = 4z*` exactly, independent of profile shape) holds
+to ~1% at `z*=29.9` where the flow has had the most settling time, and the numerical
+`Nu` is within ~5% of the classical 4.364 there — both degrading somewhat closer to the
+outlet, exactly as expected from having progressively less settling margin. This is now
+a methodologically sound, independent confirmation (built only from the governing PDEs
+and the wall BC, with no reference to the comparison formula) that lands close to
+`Nu=48/11`, not the `≈2.18` implied by the PDF-literal (unhalved) coefficients — consistent
+with, and now properly supporting, the four analytical derivations in section D.
 
 ## Bottom line
 
-Five independent checks — four analytical derivations (one purely local/algebraic, not even
-requiring the fully-developed assumption; one cross-checked against a Nusselt number your own code
-already trusts) plus one empirical check against the actual, independently-built CFD solution —
-all point to the same factor-of-2 discrepancy in the radial terms of the given analytical formula.
-I'd treat this as "very likely a typo," but since I only have the one PDF and no lecture notes to
-cross-reference, please sanity-check against your course materials before I change the formula used
-for the comparison plots.
+Four independent analytical derivations (one purely local/algebraic, not even requiring the
+fully-developed assumption; one cross-checked against a Nusselt number your own code already
+trusts), plus a properly-redone empirical check against the actual CFD solution (section E,
+`Nu` within ~5% of the classical 4.364 with adequate settling time, versus ~2.18 implied by the
+PDF-literal coefficients), all point to the same factor-of-2 discrepancy in the radial terms of
+the given analytical formula. I'd treat this as "very likely a typo," but since I only have the
+one PDF and no lecture notes to cross-reference, please sanity-check against your course
+materials before treating this as final.

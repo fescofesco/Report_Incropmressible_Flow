@@ -635,9 +635,10 @@ For constant wall heat flux in fully developed thermal flow:
 \end{equation}
 \emph{Note:} the assignment sheet states this with the radial-term coefficients doubled
 ($(2r^*)^2 - \frac14(2r^*)^4 - \frac34$). Four independent re-derivations from the energy
-equation plus an empirical check against the actual CFD solution (which reproduces the
-classical $\text{Nu}=48/11$ result to within $\sim$3\%, not the value implied by the sheet's
-literal coefficients) all support the halved coefficients used here; see
+equation, plus an empirical check against the CFD solution itself (which gives
+$\text{Nu}=\Rey\Pran/(\theta_{\text{wall}}-\theta_{\text{bulk}}) \approx 4.6$ at $z^*=29.9$,
+within $\sim$5\% of the classical $\text{Nu}=48/11\approx4.36$, versus $\approx$2.18 implied
+by the sheet's literal coefficients), support the halved coefficients used here; see
 \texttt{Report/temperature\_formula\_review.md} for the full derivation and
 \texttt{TODO.md} for a reminder to cross-check this against the lecture-note derivation
 before final submission.

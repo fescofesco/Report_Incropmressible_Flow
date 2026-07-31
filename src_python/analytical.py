@@ -198,10 +198,15 @@ def calculate_analytical_flow_rate_nondim(R_star=0.5):
     """
     Calculate analytical volumetric flow rate for fully developed flow
 
-    For parabolic profile w* = 2(1-(2r*)²), we have:
-    Q* = π/2 * R*²  (non-dimensional)
+    For parabolic profile w* = 2(1-(2r*)²) with mean velocity 1 (matching
+    the uniform inlet), Q* = mean_velocity * area = 1 * pi*R*^2:
+    Q* = pi * R*^2  (non-dimensional)
 
-    For R* = 0.5 (half diameter), Q* = π/8
+    For R* = 0.5 (half diameter), Q* = pi/4
+
+    Cross-checked against numerical integration of the velocity profile
+    (calculate_volumetric_flow_rate): matches to 1e-6. The previous formula
+    (pi/2 * R*^2 = pi/8 at R*=0.5) was off by a factor of 2.
 
     Parameters:
     -----------
@@ -213,7 +218,7 @@ def calculate_analytical_flow_rate_nondim(R_star=0.5):
     Q_star : float
         Non-dimensional flow rate
     """
-    Q_star = 0.5 * np.pi * R_star**2
+    Q_star = np.pi * R_star**2
 
     return Q_star
 
