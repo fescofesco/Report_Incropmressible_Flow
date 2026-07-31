@@ -329,25 +329,33 @@ After applying Gauss' divergence theorem, the volume integrals become surface fl
     \label{eq:div_discrete}
 \end{equation}
 
-\subsubsection{Convective Scheme: First-Order Upwind}
+\subsubsection{Convective Scheme: 2nd-Order Upwind (Linear Upwind Differencing)}
 
 Central differencing requires the cell Peclet number $\text{Pe} = |v|\,\Delta x / (\nu_{\text{eff}})$ to satisfy $\text{Pe} < 2$.
 For our grid:
 \begin{equation}
     \text{Pe}_z = |w|\,\Delta z\,\Rey = 1 \times 0.2 \times 100 = 20 \gg 2
 \end{equation}
+(and $\text{Pe}_\theta = |w|\,\Delta z\,\Rey\Pran = 100$ for the energy equation, even higher).
 
-Central differencing is therefore unstable. We use \textbf{first-order upwind differencing} for convective terms:
-at each face the transported quantity is evaluated from the \textit{upwind} side of the face, based on the sign of the transporting velocity.
+Pure central differencing is therefore prone to non-physical oscillations at these cell Peclet
+numbers. We use \textbf{2nd-order upwind (linear-upwind / LUD) differencing} for convective
+terms: at each face, the transported quantity is linearly extrapolated from the two cells on
+the \textit{upwind} side of the face, based on the sign of the transporting velocity. This keeps
+the upwind stability bias while being formally 2nd-order accurate, matching the assignment's
+FVM accuracy requirement (an earlier version of this solver used plain 1st-order upwind, which
+only satisfies this requirement for the diffusive terms).
 
-For a generic flux $F = v\,\phi$ at a face:
+For a generic flux $F = v\,\phi$ at the face between cells $i$ and $i+1$:
 \begin{equation}
     \phi_{\text{face}} =
     \begin{cases}
-        \phi_L & \text{if } v_{\text{face}} > 0 \\
-        \phi_R & \text{if } v_{\text{face}} < 0
+        \tfrac{3}{2}\phi_i - \tfrac{1}{2}\phi_{i-1} & \text{if } v_{\text{face}} > 0 \\[4pt]
+        \tfrac{3}{2}\phi_{i+1} - \tfrac{1}{2}\phi_{i+2} & \text{if } v_{\text{face}} < 0
     \end{cases}
 \end{equation}
+which reduces to the classic 1st-order upwind value ($\phi_i$ or $\phi_{i+1}$) if the linear
+extrapolation term is dropped.
 
 Diffusive terms retain standard \textbf{second-order central differencing}.
 
@@ -379,10 +387,22 @@ The radial momentum equation is discretized analogously at u-face control volume
 
 \subsection{Temporal Discretization}
 
-Explicit Euler time stepping:
-\begin{equation}
-    \phi^{n+1} = \phi^n + \Delta t\,F(\phi^n)
-\end{equation}
+Explicit 2nd-order (Heun / RK2, explicit trapezoidal) time stepping, as required by the
+assignment:
+\begin{align}
+    k_1 &= F(\phi^n) \\
+    \tilde{\phi} &= \phi^n + \Delta t\,k_1 \\
+    k_2 &= F(\tilde{\phi}) \\
+    \phi^{n+1} &= \phi^n + \tfrac{\Delta t}{2}\left(k_1 + k_2\right)
+\end{align}
+Since pressure is a constraint (enforcing $\nabla\cdot\vec{u}=0$) rather than an explicit RHS
+term, it cannot be blended stage-by-stage. Both $k_1$ and $k_2$ are evaluated from the
+momentum RHS \emph{without} the pressure gradient; the combined ($\phi^{n+1}$) velocity
+predictor is then projected \emph{once} via a single Poisson solve to enforce continuity --
+the standard simplification for explicit RK2 projection methods, since continuity only needs
+to hold for the final combined step. The temperature equation is advanced with the same
+Heun scheme, using the new divergence-free velocity field for the second stage's convective
+transport.
 
 The time step $\Delta t = 0.002$ satisfies the stability constraints:
 \begin{itemize}
@@ -490,13 +510,18 @@ Table~\ref{tab:modules} lists all functions and their roles.
 \texttt{apply\_bc\_w.m}       & Enforces axial velocity BCs (inlet Dirichlet, outlet zero-gradient) \\
 \texttt{apply\_bc\_u.m}       & Enforces radial velocity BCs (axis and wall: $u=0$) \\
 \texttt{apply\_bc\_T.m}       & Enforces temperature BCs (inlet Dirichlet, outlet zero-gradient) \\
-\texttt{predictor\_w.m}       & Predictor step for $w^*$ (upwind convection, central diffusion) \\
-\texttt{predictor\_u.m}       & Predictor step for $u^*$ (upwind convection, central diffusion) \\
+\texttt{upwind2\_face.m}      & 2nd-order upwind (linear-extrapolation) face-value helper, shared by all three RHS functions below \\
+\texttt{compute\_rhs\_w.m}    & Explicit RHS of axial momentum (no pressure): 2nd-order upwind convection, central diffusion \\
+\texttt{compute\_rhs\_u.m}    & Explicit RHS of radial momentum (no pressure): 2nd-order upwind convection, central diffusion \\
+\texttt{compute\_rhs\_T.m}    & Explicit RHS of the energy equation: 2nd-order upwind convection, central diffusion \\
+\texttt{predictor\_w.m}       & Thin 1-stage-Euler wrapper around \texttt{compute\_rhs\_w.m} (kept for standalone use) \\
+\texttt{predictor\_u.m}       & Thin 1-stage-Euler wrapper around \texttt{compute\_rhs\_u.m} (kept for standalone use) \\
 \texttt{build\_poisson\_matrix.m} & Assembles sparse Poisson matrix $\mathbf{A}$ (called once) \\
 \texttt{solve\_poisson.m}     & Solves $\mathbf{A}\,\mathbf{p}' = \mathbf{b}$ using MATLAB backslash \\
 \texttt{correct\_velocity.m}  & Applies pressure-gradient correction to $u^*$, $w^*$ \\
 \texttt{update\_pressure.m}   & Updates pressure: $p^{n+1} = p^n + \alpha_p\,p'$ \\
-\texttt{advance\_temperature.m} & Advances $\theta$ by one explicit step (upwind convection) \\
+\texttt{advance\_temperature.m} & Thin 1-stage-Euler wrapper around \texttt{compute\_rhs\_T.m} (kept for standalone use) \\
+\texttt{rk2\_step.m}          & Advances $(u,w,p,\theta)$ by one explicit 2nd-order (Heun/RK2) step -- the main loop's actual per-step call \\
 \texttt{compute\_divergence.m}   & Computes discrete divergence of velocity field \\
 \texttt{compute\_residuals.m}    & Computes convergence residuals ($R_{\text{cont}}$, $R_{\text{vel}}$, $R_{\theta}$) \\
 \texttt{check\_convergence.m}    & Returns true when all residuals are below tolerances \\
@@ -535,7 +560,7 @@ Figure~\ref{fig:flowchart} shows the algorithm implemented in \texttt{main.m}.
 \node (poisson_mat) [process, below=of init] {Assemble Poisson matrix $\mathbf{A}$ (once)};
 \node (bc0) [process, below=of poisson_mat] {Apply boundary conditions};
 
-\node (pred) [process, below=0.8cm of bc0] {Predictor: $w^*$, $u^*$ (upwind FVM)};
+\node (pred) [process, below=0.8cm of bc0] {RK2 stage: $w^*$, $u^*$ (2nd-order upwind FVM)};
 \node (solve_p) [process, below=of pred] {Solve Poisson: $\mathbf{A}\,\mathbf{p}' = \mathbf{b}$};
 \node (correct) [process, below=of solve_p] {Correct: $u^{n+1}$, $w^{n+1}$, $p^{n+1}$};
 \node (temp) [process, below=of correct] {Advance temperature $\theta^{n+1}$};
@@ -571,7 +596,7 @@ Figure~\ref{fig:flowchart} shows the algorithm implemented in \texttt{main.m}.
 \subsection{Key Implementation Details}
 
 \begin{itemize}
-    \item \textbf{Upwind differencing}: Convective fluxes in both momentum and energy equations use first-order upwind to avoid oscillations at high Peclet numbers ($\text{Pe}_z = 20$ for momentum, $\text{Pe}_{\theta} = 100$ for energy).
+    \item \textbf{2nd-order upwind differencing}: Convective fluxes in both momentum and energy equations use 2nd-order (linear-extrapolation) upwind to avoid oscillations at high Peclet numbers ($\text{Pe}_z = 20$ for momentum, $\text{Pe}_{\theta} = 100$ for energy) while remaining formally 2nd-order accurate.
 
     \item \textbf{Sparse direct solver}: The Poisson matrix ($12{,}500 \times 12{,}500$) is assembled once using MATLAB's \texttt{sparse} function and solved each time step with the backslash operator (\texttt{A\textbackslash b}).
 
@@ -611,7 +636,7 @@ For constant wall heat flux in fully developed thermal flow:
 \emph{Note:} the assignment sheet states this with the radial-term coefficients doubled
 ($(2r^*)^2 - \frac14(2r^*)^4 - \frac34$). Four independent re-derivations from the energy
 equation plus an empirical check against the actual CFD solution (which reproduces the
-classical $\Nu=48/11$ result to within $\sim$3\%, not the value implied by the sheet's
+classical $\text{Nu}=48/11$ result to within $\sim$3\%, not the value implied by the sheet's
 literal coefficients) all support the halved coefficients used here; see
 \texttt{Report/temperature\_formula\_review.md} for the full derivation and
 \texttt{TODO.md} for a reminder to cross-check this against the lecture-note derivation
@@ -651,7 +676,8 @@ $\Delta z$ & 0.2 & Axial grid spacing \\
 $\Delta t$ & 0.002 & Time step \\
 $n_{\text{steps}}$ & 30\,000 & Maximum time steps \\
 $\alpha_p$ & 0.7 & Pressure under-relaxation \\
-Convective scheme & First-order upwind & Stability for Pe $\gg 2$ \\
+Convective scheme & 2nd-order upwind (LUD) & Stability for Pe $\gg 2$, 2nd-order accurate \\
+Time integration & Explicit Heun / RK2 & 2nd-order accurate, per assignment spec \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -738,7 +764,7 @@ The simulation is considered converged when the continuity, velocity, and temper
 \section{Conclusion}
 
 A finite volume solver for 2D axisymmetric incompressible pipe flow was developed in MATLAB and validated against analytical solutions.
-The solver uses a staggered grid with first-order upwind differencing for convective stability and a projection method with a sparse direct Poisson solver for pressure correction.
+The solver uses a staggered grid with 2nd-order upwind (linear upwind) differencing for convective stability, explicit 2nd-order (Heun/RK2) time integration, and a projection method with a sparse direct Poisson solver for pressure correction.
 
 The numerical results reproduce the expected physics:
 \begin{itemize}
@@ -781,8 +807,10 @@ The complete source code is provided below for the key solver functions.
 \lstinputlisting[caption={apply\_bc\_T.m --- Temperature boundary conditions}, label={lst:bcT}]{../src_matlab/apply_bc_T.m}
 
 \subsection{Momentum Solver}
-\lstinputlisting[caption={predictor\_w.m --- Axial momentum predictor with upwind convection}, label={lst:predw}]{../src_matlab/predictor_w.m}
-\lstinputlisting[caption={predictor\_u.m --- Radial momentum predictor with upwind convection}, label={lst:predu}]{../src_matlab/predictor_u.m}
+\lstinputlisting[caption={upwind2\_face.m --- 2nd-order upwind (linear-extrapolation) face-value helper}, label={lst:upwind2}]{../src_matlab/upwind2_face.m}
+\lstinputlisting[caption={compute\_rhs\_w.m --- Axial momentum RHS: 2nd-order upwind convection, central diffusion}, label={lst:rhsw}]{../src_matlab/compute_rhs_w.m}
+\lstinputlisting[caption={compute\_rhs\_u.m --- Radial momentum RHS: 2nd-order upwind convection, central diffusion}, label={lst:rhsu}]{../src_matlab/compute_rhs_u.m}
+\lstinputlisting[caption={rk2\_step.m --- Explicit 2nd-order (Heun/RK2) time step with single-projection pressure correction}, label={lst:rk2}]{../src_matlab/rk2_step.m}
 
 \subsection{Poisson Solver and Pressure Correction}
 \lstinputlisting[caption={build\_poisson\_matrix.m --- Sparse Poisson matrix assembly}, label={lst:buildA}]{../src_matlab/build_poisson_matrix.m}
@@ -790,7 +818,7 @@ The complete source code is provided below for the key solver functions.
 \lstinputlisting[caption={correct\_velocity.m --- Velocity correction step}, label={lst:correct}]{../src_matlab/correct_velocity.m}
 
 \subsection{Temperature Solver}
-\lstinputlisting[caption={advance\_temperature.m --- Energy equation with upwind convection}, label={lst:temperature}]{../src_matlab/advance_temperature.m}
+\lstinputlisting[caption={compute\_rhs\_T.m --- Energy equation RHS: 2nd-order upwind convection, central diffusion}, label={lst:rhsT}]{../src_matlab/compute_rhs_T.m}
 
 \subsection{Convergence Monitoring}
 \lstinputlisting[caption={compute\_residuals.m --- Residual computation}, label={lst:residuals}]{../src_matlab/compute_residuals.m}
