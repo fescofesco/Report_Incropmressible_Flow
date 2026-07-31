@@ -198,8 +198,9 @@ where the stress tensor components for a Newtonian fluid are:
 
 \textbf{Wall} ($r = D/2$):
 \begin{equation}
-    u = 0, \quad w = 0, \quad -\lambda\parder{T}{r}\bigg|_{r=D/2} = q_w
+    u = 0, \quad w = 0, \quad \lambda\parder{T}{r}\bigg|_{r=D/2} = q_w
 \end{equation}
+Heat flows into the fluid at the wall (constant heating), so with $r$ increasing outward this is a positive gradient: the wall is hotter than the centreline.
 
 \textbf{Centreline} ($r = 0$, symmetry):
 \begin{equation}
@@ -271,7 +272,9 @@ Dropping asterisks for brevity (all quantities are non-dimensional hereafter):
 $\;u = 0,\; w = 1,\; \theta = 0$
 
 \textbf{Wall} ($r = 1/2$):
-$\;u = 0,\; w = 0,\; \partial\theta/\partial r = -1$
+$\;u = 0,\; w = 0,\; \partial\theta/\partial r = \Rey\Pran$
+
+Non-dimensionalizing the wall condition directly: $\partial\theta/\partial r^* = D\cdot(\rho c_v W_{\text{in}}/q_w)\cdot\partial T/\partial r|_{\text{wall}} = D\cdot(\rho c_v W_{\text{in}}/q_w)\cdot(q_w/\lambda) = \rho c_v W_{\text{in}} D/\lambda = \Rey\Pran$ (i.e.\ 500 for $\Rey=100,\Pran=5$), \emph{not} $\pm 1$ — the reference length/temperature scales do not cancel.
 
 \textbf{Centreline} ($r = 0$):
 $\;u = 0,\; \partial w/\partial r = 0,\; \partial\theta/\partial r = 0$
@@ -448,17 +451,18 @@ For each boundary, a ghost cell value is defined such that the appropriate condi
 \textbf{Boundary} & $u_{\text{ghost}}$ & $w_{\text{ghost}}$ & $p_{\text{ghost}}$ & $\theta_{\text{ghost}}$ \\
 \midrule
 Centreline ($r=0$) & $u_g = 0$ & $w_g = w_1$ (symmetry) & $p_g = p_1$ & $\theta_g = \theta_1$ \\
-Wall ($r=0.5$) & $u_g = 0$ & $w_g = -w_{n_r}$ (no-slip) & $p_g = p_{n_r}$ & $\theta_g = \theta_{n_r} - \Delta r$ \\
+Wall ($r=0.5$) & $u_g = 0$ & $w_g = -w_{n_r}$ (no-slip) & $p_g = p_{n_r}$ & $\theta_g = \theta_{n_r} + \Delta r\cdot\Rey\Pran$ \\
 Inlet ($z=0$) & $u_g = -u_1$ & $w = 1$ (Dirichlet) & $p_g = p_1$ & $\theta = 0$ (Dirichlet) \\
 Outlet ($z=L$) & $u_g = u_{n_z}$ & $w_g = w_{n_z}$ & $p' = 0$ & $\theta_g = \theta_{n_z}$ \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-The wall temperature ghost cell $\theta_g = \theta_{n_r} - \Delta r$ implements the Neumann condition $\partial\theta/\partial r = -1$ via central differencing:
+The wall temperature ghost cell $\theta_g = \theta_{n_r} + \Delta r\cdot\Rey\Pran$ implements the Neumann condition $\partial\theta/\partial r = \Rey\Pran$ via central differencing:
 \begin{equation}
-    \parder{\theta}{r}\bigg|_{\text{wall}} \approx \frac{\theta_g - \theta_{n_r}}{\Delta r} = \frac{-\Delta r}{\Delta r} = -1
+    \parder{\theta}{r}\bigg|_{\text{wall}} \approx \frac{\theta_g - \theta_{n_r}}{\Delta r} = \frac{\Delta r\cdot\Rey\Pran}{\Delta r} = \Rey\Pran
 \end{equation}
+An earlier version of this derivation incorrectly dropped the $\Rey\Pran$ factor (giving $\partial\theta/\partial r = -1$); see \texttt{Report/temperature\_formula\_review.md} for the full re-derivation and cross-checks.
 
 \newpage
 
@@ -601,9 +605,17 @@ The hydrodynamic entry length is approximately $L_h \approx 0.05\,\Rey\,D = 5D$.
 
 For constant wall heat flux in fully developed thermal flow:
 \begin{equation}
-    \theta = 4z^* + \Rey\Pran\left[(2r^*)^2 - \frac{1}{4}(2r^*)^4 - \frac{3}{4}\right]
+    \theta = 4z^* + \Rey\Pran\left[\frac{1}{2}(2r^*)^2 - \frac{1}{8}(2r^*)^4 - \frac{7}{48}\right]
     \label{eq:analytical_temperature}
 \end{equation}
+\emph{Note:} the assignment sheet states this with the radial-term coefficients doubled
+($(2r^*)^2 - \frac14(2r^*)^4 - \frac34$). Four independent re-derivations from the energy
+equation plus an empirical check against the actual CFD solution (which reproduces the
+classical $\Nu=48/11$ result to within $\sim$3\%, not the value implied by the sheet's
+literal coefficients) all support the halved coefficients used here; see
+\texttt{Report/temperature\_formula\_review.md} for the full derivation and
+\texttt{TODO.md} for a reminder to cross-check this against the lecture-note derivation
+before final submission.
 
 The thermal entry length is $L_t \approx 0.05\,\Rey\,\Pran\,D = 25D$.
 

@@ -1,13 +1,10 @@
 %% MAIN  Simulation loop for 2D axisymmetric incompressible pipe flow.
 %
-%  Algorithm (per time step):
-%    1. Predictor:   w*, u*  (momentum without pressure)
-%    2. Poisson:     p'      (enforce div(u^{n+1}) = 0)
-%    3. Corrector:   u^{n+1}, w^{n+1}
-%    4. Pressure:    p^{n+1} = p^n + alpha_p * p'
-%    5. Temperature: theta^{n+1}
-%    6. Apply BCs
-%    7. Check convergence
+%  Algorithm (per time step) -- see rk2_step.m:
+%    Explicit 2nd-order (Heun / RK2) momentum predictor (two RHS
+%    evaluations, no pressure), a single Poisson solve/projection on the
+%    combined predictor to enforce div(u^{n+1})=0, a pressure update, and
+%    a Heun step for the temperature equation.
 
 clear; close all; clc;
 
@@ -56,29 +53,10 @@ converged_step = 0;
 
 for step = 1:n_steps
 
-    % Step 1: Predictor (momentum, no pressure)
-    w_star = predictor_w(w, u, r_c, r_f, dr, dz, dt, Re);
-    u_star = predictor_u(u, w, r_c, r_f, dr, dz, dt, Re);
-    w_star = apply_bc_w(w_star);
-    u_star = apply_bc_u(u_star);
+    % 2nd-order explicit (Heun/RK2) step: momentum + Poisson + temperature
+    [u_new, w_new, p_new, T_new] = rk2_step(u, w, p, T, r_c, r_f, dr, dz, dt, Re, Pr, n_r, n_z, A_poisson, alpha_p);
 
-    % Step 2: Poisson for pressure correction
-    p_prime = solve_poisson(A_poisson, u_star, w_star, r_c, r_f, dr, dz, dt, n_r, n_z);
-
-    % Step 3: Velocity correction
-    [u_new, w_new] = correct_velocity(u_star, w_star, p_prime, dr, dz, dt);
-    u_new = apply_bc_u(u_new);
-    w_new = apply_bc_w(w_new);
-
-    % Step 4: Pressure update
-    p_new = update_pressure(p, p_prime, alpha_p);
-
-    % Step 5: Temperature
-    T_new = advance_temperature(T, u_new, w_new, r_c, r_f, dr, dz, dt, Re, Pr);
-    T_new(:, 1)   = 0.0;           % inlet
-    T_new(:, end) = T_new(:, end-1);  % outlet zero-gradient
-
-    % Step 6: Convergence check
+    % Convergence check
     res = compute_residuals(w_new, w, T_new, T, u_new, w_new, r_c, r_f, dr, dz, dt);
     hist_cont(step) = res.continuity;
     hist_vel(step)  = res.momentum;

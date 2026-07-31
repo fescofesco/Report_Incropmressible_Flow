@@ -19,8 +19,8 @@ Non-dimensional BCs
   w[:, n_z] = w[:,n_z-1]   (outlet:   zero-gradient ∂w/∂z = 0)
 
   For temperature θ:
-    dθ/dr|wall = -1   (wall heat flux: in non-dim form ∂θ/∂r* = q_w·D/(λ·q_w/(ρcvW_in)) = -Re·Pr ...
-                       but with our non-dim scale the BC is ∂θ/∂r* = -1 at r*=0.5)
+    dθ/dr|wall = +Re·Pr   (wall heat flux: ∂θ/∂r* = D·(ρc_vW_in/q_w)·∂T/∂r|_wall
+                            = D·(ρc_vW_in/q_w)·(q_w/λ) = ρc_vW_inD/λ = Re·Pr)
     dθ/dr|axis = 0    (symmetry)
     θ[:,0]    = 0     (inlet)
     dθ/dz|out = 0     (outlet)
@@ -88,11 +88,9 @@ def apply_bc_T(T, dr, n_r, Re, Pr):
     Enforce non-dimensional temperature boundary conditions.
 
     Non-dimensional wall heat-flux BC:
-        ∂θ/∂r*|_{r*=0.5} = -1
-    This is implemented as a ghost-cell value:
-        T_ghost_wall = T[n_r-1, :] + dr * (-1)
-        → The flux through the wall face is (-1/Re·Pr) * (-1) / dr per unit area,
-          but the sign convention here sets the outward gradient.
+        ∂θ/∂r*|_{r*=0.5} = +Re·Pr
+    This is implemented as a ghost-cell value inside solver_temperature.py:
+        T_ghost_wall = T[n_r-1, :] + dr * Re*Pr
 
     Parameters
     ----------

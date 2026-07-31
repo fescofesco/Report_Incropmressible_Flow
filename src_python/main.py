@@ -1,14 +1,11 @@
 """
 Main simulation loop for 2D axisymmetric incompressible pipe flow.
 
-Algorithm (per time step n → n+1):
-  1. Predictor:   w*, u*  ← solve momentum without pressure gradient
-  2. Poisson:     p'      ← enforce div(u^{n+1}) = 0
-  3. Corrector:   u^{n+1}, w^{n+1}  ← subtract pressure-gradient correction
-  4. Pressure:    p^{n+1} = p^n + ζ·p'
-  5. Temperature: θ^{n+1} ← advance energy equation
-  6. Apply BCs
-  7. Check convergence
+Algorithm (per time step n → n+1) — see time_integration.rk2_step:
+  Explicit 2nd-order (Heun / RK2) momentum predictor (two RHS evaluations,
+  no pressure), a single Poisson solve/projection on the combined
+  predictor to enforce div(u^{n+1})=0, a pressure update, and a Heun step
+  for the temperature equation.
 
 Physical problem
 ----------------
@@ -31,11 +28,9 @@ from constants import (Re, Pr, n_r, n_z, dt, n_steps, output_interval,
                        tol_continuity, tol_velocity, tol_temperature, alpha_p)
 from grid import make_grid
 from initial_conditions import initialise_fields
-from boundary_conditions import apply_all_bc, apply_bc_u, apply_bc_w
-from solver_momentum import predictor_w, predictor_u
-from solver_poisson import (build_poisson_matrix, solve_poisson,
-                             correct_velocity, update_pressure)
-from solver_temperature import advance_temperature
+from boundary_conditions import apply_all_bc
+from solver_poisson import build_poisson_matrix
+from time_integration import rk2_step
 from convergence import compute_residuals, check_convergence
 from analytical import (calculate_analytical_velocity_nondim,
                          calculate_analytical_temperature_nondim)
@@ -97,56 +92,24 @@ def main():
     A_poisson = build_poisson_matrix(r_c, r_f, dr, dz, n_r, n_z)
     print(f"  Matrix size: {A_poisson.shape}, nnz={A_poisson.nnz}")
 
-    # ---- history arrays for convergence and Adams-Bashforth -----------------
+    # ---- history arrays for convergence -------------------------------------
     hist = {'continuity': [], 'momentum': [], 'temperature': []}
-    w_prev = w.copy()
-    T_prev = T.copy()
-
-    # For Adams-Bashforth 2nd order: need RHS at step n-1
-    # We start with Euler (single-step) for the first time step.
-    rhs_w_prev = None
-    rhs_T_prev = None
 
     # ---- time loop ----------------------------------------------------------
     print("\nStarting time integration ...")
     for step in range(1, n_steps + 1):
 
-        # ---- Step 1: Predictor (momentum, no pressure) ----------------------
-        w_star = predictor_w(w, u, r_c, r_f, dr, dz, dt, Re)
-        u_star = predictor_u(u, w, r_c, r_f, dr, dz, dt, Re)
+        # ---- 2nd-order explicit (Heun/RK2) step: momentum + Poisson + temp --
+        u_new, w_new, p_new, T_new = rk2_step(
+            u, w, p, T, r_c, r_f, dr, dz, dt, Re, Pr, n_r, n_z, A_poisson, alpha_p)
 
-        # Apply BCs to predicted fields
-        apply_bc_w(w_star)
-        apply_bc_u(u_star)
-
-        # ---- Step 2: Poisson for pressure correction ------------------------
-        p_prime = solve_poisson(A_poisson, u_star, w_star,
-                                r_c, r_f, dr, dz, dt, n_r, n_z)
-
-        # ---- Step 3: Velocity correction ------------------------------------
-        u_new, w_new = correct_velocity(u_star, w_star, p_prime,
-                                        r_f, dr, dz, dt, n_r, n_z)
-        apply_bc_u(u_new)
-        apply_bc_w(w_new)
-
-        # ---- Step 4: Pressure update ----------------------------------------
-        p_new = update_pressure(p, p_prime, alpha_p)
-
-        # ---- Step 5: Temperature --------------------------------------------
-        T_new = advance_temperature(T, u_new, w_new, r_c, r_f, dr, dz, dt, Re, Pr)
-        # BC for temperature
-        T_new[:, 0]  = 0.0            # inlet
-        T_new[:, -1] = T_new[:, -2]   # outlet zero-gradient
-
-        # ---- Step 6: Convergence check --------------------------------------
+        # ---- Convergence check ------------------------------------------------
         res = compute_residuals(w_new, w, T_new, T, u_new, w_new,
                                 r_c, r_f, dr, dz, dt)
         for key in hist:
             hist[key].append(res[key])
 
         # ---- advance --------------------------------------------------------
-        w_prev = w.copy()
-        T_prev = T.copy()
         u, w, p, T = u_new, w_new, p_new, T_new
 
         # ---- progress print -------------------------------------------------

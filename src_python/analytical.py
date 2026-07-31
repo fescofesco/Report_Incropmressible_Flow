@@ -36,9 +36,24 @@ def calculate_analytical_temperature(r_grid, z, Re, Pr, D=1.0):
     """
     Calculate analytical temperature profile for fully developed thermal flow
 
-    Profile: θ = 4*(z/D) + Re*Pr*[(2r/D)² - (1/4)*(2r/D)⁴ - 3/4]
+    Profile: θ = 4*(z/D) + Re*Pr*[(1/2)*(2r/D)² - (1/8)*(2r/D)⁴ - 7/48]
 
     Where θ = (T - T_in)*ρ*W_in*c_v/q_w
+
+    NOTE: the assignment PDF states this with coefficients (2r/D)² - (1/4)(2r/D)⁴ - 3/4
+    (i.e. double the radial-term coefficients used here). Re-derivation from the
+    energy equation (three independent methods), a cross-check against the classic
+    Nu=48/11 result for constant-heat-flux pipe flow (see
+    calculate_nusselt_number_fully_developed below), AND an empirical check against
+    the actual CFD solution (θ_wall-θ_center ≈ 111 numerically vs. 185 predicted by
+    this corrected formula vs. 370 predicted by the PDF-literal formula) all point to
+    the coefficients here being correct and the PDF's being off by a factor of 2.
+    See Report/temperature_formula_review.md for the full derivation.
+
+    The constant term (7/48) is not halved naively; it's independently re-derived
+    from the exact global energy balance, which requires the flow-weighted (bulk)
+    average of the radial bracket to vanish (so θ_bulk = 4z* exactly, matching mass/
+    energy conservation from the inlet, at every z, not just asymptotically).
 
     Parameters:
     -----------
@@ -64,7 +79,7 @@ def calculate_analytical_temperature(r_grid, z, Re, Pr, D=1.0):
     term1 = 4.0 * z / D
 
     # Radial profile term
-    term2 = Re * Pr * (r_ratio**2 - 0.25 * r_ratio**4 - 0.75)
+    term2 = Re * Pr * (0.5 * r_ratio**2 - 0.125 * r_ratio**4 - 7.0 / 48.0)
 
     theta_analytical = term1 + term2
 
