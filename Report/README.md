@@ -97,10 +97,15 @@ w/W_in = 2[1 - (2r/D)²]
 
 **Temperature:**
 ```
-θ = 4(z/D) + Re·Pr[(2r/D)² - (1/4)(2r/D)⁴ - 3/4]
+θ = 4(z/D) + Re·Pr[½(2r/D)² - ⅛(2r/D)⁴ - 7/48]
 ```
 
 where θ = (T - T<sub>in</sub>)ρW<sub>in</sub>c<sub>v</sub>/q<sub>w</sub>
+
+Note: the assignment sheet states this with the radial-term coefficients doubled
+((2r/D)² - ¼(2r/D)⁴ - ¾). The halved coefficients above are used in the code, based
+on independent re-derivation and empirical validation against the CFD solution —
+see `temperature_formula_review.md`.
 
 ## Notes
 

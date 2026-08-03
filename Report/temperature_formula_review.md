@@ -45,7 +45,6 @@ w = 2 W_in [ 1 − (2r/D)² ] ,
 
 (T − T_in)ϱ W_in c_v / q_w = 4 z/D + Re Pr [ (2r/D)² − (1/4)(2r/D)⁴ − 3/4 ] ,
 
-welche für zunehmende Lauflänge z schlussendlich erreicht werden müssen.
 ```
 
 This is an unambiguous match to what's in `analytical.py` / `analytical_temperature.m` / `main.tex` —
@@ -112,12 +111,15 @@ transcribed formula's radial bracket and got `θ_wall − θ_bulk = (11/24)·Re�
 Derivations 2/3 instead gives `θ_wall − θ_bulk = (11/48)·Re·Pr`, which reproduces `Nu = 48/11`
 exactly, consistent with the value already hardcoded elsewhere in your codebase.
 
-**Caveat on the constant term.** I have *not* independently re-derived the `−3/4` (or, under the
-correction, `−const`) offset from first principles matching the entrance condition at `z*=0` — that
-requires matching the fully-developed asymptote to the developing solution, which is a longer
-derivation I didn't attempt. If you correct the `(2r*)²`/`(2r*)⁴` coefficients, the constant should
-be re-derived or checked against your lecture notes too, rather than assumed to just halve along
-with the other terms.
+**Constant term — since re-derived (this caveat is now resolved).** The constant is not simply
+half of `3/4`. It follows from the exact global energy balance: `θ_bulk(z*) = 4z*` at every z
+(not just asymptotically — this is mass/energy conservation from the inlet, independent of profile
+shape), which requires the flow-weighted (bulk) average of the radial bracket to vanish. Computing
+that average for the corrected bracket `½(2r*)²−⅛(2r*)⁴` over the velocity-weighted cross-section
+gives exactly `7/48`, which is what `analytical.py`/`analytical_temperature.m`/`main.tex` use. This
+was cross-checked two ways: (1) it reproduces `Nu=48/11` exactly when combined with the wall value
+(section D, derivation 4), and (2) section E's empirical check against the actual CFD solution
+confirms `θ_bulk≈4z*` to ~1% where the flow has adequate settling time.
 
 ## E) Empirical confirmation from the fixed CFD solver — CORRECTED
 
@@ -143,9 +145,13 @@ elapsed since the thermal front passed that location):
 
 | `z*` | margin `t*−z*` | `θ_bulk` (numerical) | `4z*` (expected) | `θ_wall−θ_bulk` | `Nu` | classic `Nu=48/11` |
 |---|---|---|---|---|---|---|
-| 29.9 | 30.1 | 118.46 | 119.6 | 109.04 | **4.585** | 4.364 |
-| 39.9 | 20.1 | 154.98 | 159.6 | 105.90 | **4.722** | 4.364 |
-| 48.9 | 11.1 | 181.14 | 195.6 | 99.25  | **5.038** | 4.364 |
+| 29.9 | 30.1 | 119.43 | 119.6 | 109.06 | **4.585** | 4.364 |
+| 39.9 | 20.1 | 155.82 | 159.6 | 105.77 | **4.727** | 4.364 |
+| 48.9 | 11.1 | 181.79 | 195.6 | 99.06  | **5.048** | 4.364 |
+
+(Re-checked after the later temperature-boundary-condition fix — numbers essentially
+unchanged, as expected since that fix only affects the very first/last z-cells, not
+these interior/near-outlet positions.)
 
 The global energy balance (`θ_bulk = 4z*` exactly, independent of profile shape) holds
 to ~1% at `z*=29.9` where the flow has had the most settling time, and the numerical
@@ -156,13 +162,27 @@ and the wall BC, with no reference to the comparison formula) that lands close t
 `Nu=48/11`, not the `≈2.18` implied by the PDF-literal (unhalved) coefficients — consistent
 with, and now properly supporting, the four analytical derivations in section D.
 
+## F) Direct visual comparison, both formulas plotted against the numerical solution
+
+Both candidate formulas are now available as separate functions
+(`analytical.py::calculate_analytical_temperature` / `calculate_analytical_temperature_pdf_original`,
+and the MATLAB equivalents `analytical_temperature.m` / `analytical_temperature_pdf_original.m`),
+and `T_profiles.png` overlays both at `z*=50` alongside the numerical profiles at all six plotted
+positions (see `Report/main.tex`, Fig.~\ref{fig:T_profiles}). This makes the comparison immediate:
+the numerical `z*=49.9` curve tracks the corrected-formula (dashed) curve closely across the full
+radius, while the assignment-sheet (dotted) curve is far from the numerical solution everywhere —
+at the centreline it's negative (~-175) where the numerical solution is ~120, and even at the wall
+it's noticeably below the numerical value. This is a direct, model-free visual confirmation (no
+Nusselt-number arithmetic involved) consistent with everything else in this document.
+
 ## Bottom line
 
 Four independent analytical derivations (one purely local/algebraic, not even requiring the
 fully-developed assumption; one cross-checked against a Nusselt number your own code already
-trusts), plus a properly-redone empirical check against the actual CFD solution (section E,
+trusts), a properly-redone empirical check against the actual CFD solution (section E,
 `Nu` within ~5% of the classical 4.364 with adequate settling time, versus ~2.18 implied by the
-PDF-literal coefficients), all point to the same factor-of-2 discrepancy in the radial terms of
-the given analytical formula. I'd treat this as "very likely a typo," but since I only have the
-one PDF and no lecture notes to cross-reference, please sanity-check against your course
-materials before treating this as final.
+PDF-literal coefficients), and a direct visual comparison of both formulas against the numerical
+solution (section F) all point to the same factor-of-2 discrepancy in the radial terms of the
+given analytical formula. I'd treat this as "very likely a typo," but since I only have the one
+PDF and no lecture notes to cross-reference, please sanity-check against your course materials
+before treating this as final.

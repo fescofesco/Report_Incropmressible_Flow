@@ -397,12 +397,17 @@ assignment:
 \end{align}
 Since pressure is a constraint (enforcing $\nabla\cdot\vec{u}=0$) rather than an explicit RHS
 term, it cannot be blended stage-by-stage. Both $k_1$ and $k_2$ are evaluated from the
-momentum RHS \emph{without} the pressure gradient; the combined ($\phi^{n+1}$) velocity
-predictor is then projected \emph{once} via a single Poisson solve to enforce continuity --
-the standard simplification for explicit RK2 projection methods, since continuity only needs
-to hold for the final combined step. The temperature equation is advanced with the same
-Heun scheme, using the new divergence-free velocity field for the second stage's convective
-transport.
+momentum RHS \emph{without} the pressure gradient, but each stage's velocity is individually
+projected via its own Poisson solve before being used: the stage-1 Euler predictor $\tilde\phi$
+is projected first (Poisson solve \#1) to obtain a divergence-free intermediate velocity for
+evaluating $k_2$ -- evaluating $k_2$ on an un-projected, non-divergence-free predictor would be
+inconsistent with the conservative FVM formulation (which assumes a solenoidal transport
+velocity) and would silently degrade the scheme below 2nd-order accuracy. The combined
+$\phi^{n+1}$ predictor is then projected again (Poisson solve \#2, the final projection) to
+enforce continuity for the actual time step -- \emph{two} Poisson solves per time step in
+total. The temperature equation is advanced with the same Heun scheme, using the divergence-free
+\emph{intermediate} velocity (from Poisson solve \#1) for the second stage's convective
+transport, consistent with the state used for the momentum equation's own $k_2$.
 
 The time step $\Delta t = 0.002$ satisfies the stability constraints:
 \begin{itemize}
@@ -646,6 +651,7 @@ before final submission.
 The thermal entry length is $L_t \approx 0.05\,\Rey\,\Pran\,D = 25D$.
 
 \subsection{Nusselt Number}
+\label{sec:nusselt-check}
 
 For fully developed thermal flow with constant wall heat flux:
 \begin{equation}
@@ -685,7 +691,8 @@ Time integration & Explicit Heun / RK2 & 2nd-order accurate, per assignment spec
 
 \subsection{Convergence History}
 
-The simulation is considered converged when the continuity, velocity, and temperature residuals fall below $10^{-6}$:
+The simulation targets convergence when the continuity, velocity, and temperature residuals fall
+below $10^{-6}$:
 \begin{equation}
     R_{\text{cont}} = \max_{i,j}|\nabla\cdot\mathbf{u}|, \quad
     R_{\text{vel}} = \frac{\max|w^{n+1}-w^n|}{\Delta t}, \quad
@@ -698,6 +705,21 @@ The simulation is considered converged when the continuity, velocity, and temper
     \caption{Convergence history: residuals versus time step.}
     \label{fig:convergence}
 \end{figure}
+
+In practice, $R_{\text{cont}}$ and $R_{\text{vel}}$ reach machine precision
+($\mathcal{O}(10^{-13})$) well before $t^*=60$: the velocity field is fully converged. $R_\theta$,
+however, does \emph{not} reach $10^{-6}$ within the simulated time span (final value
+$R_\theta=2.19$ at $t^*=60$, identical in the Python and MATLAB implementations) -- this reflects
+a genuinely slow physical timescale rather than a
+flaw in the scheme: thermal diffusion across the pipe radius has a non-dimensional timescale of
+order $\Rey\Pran R^{*2}\approx125$, comparable to or larger than the simulated $t^*=60$, so the
+temperature field is still slowly relaxing toward steady state (most visibly near the outlet,
+where the thermal front has had the least settling time -- see the Nusselt-number discussion in
+Section~\ref{sec:nusselt-check} / \texttt{Report/temperature\_formula\_review.md}). Extrapolating
+the logged residual decay trend, reaching $R_\theta<10^{-6}$ would require several hundred more
+non-dimensional time units (multiple additional hours of compute); this was not pursued for this
+submission, and the actually-achieved residual is reported here rather than an unsupported
+convergence claim.
 
 \subsection{Velocity Field}
 
@@ -743,8 +765,24 @@ The simulation is considered converged when the continuity, velocity, and temper
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.85\textwidth]{../Plots_matlab/T_profiles.png}
-    \caption{Non-dimensional temperature profiles $\theta(r)$ at selected axial positions.
-             Dashed lines show the analytical fully-developed solution~\eqref{eq:analytical_temperature}.}
+    \caption{Non-dimensional temperature profiles $\theta(r)$ at selected axial positions
+             (solid, numerical). Two analytical fully-developed reference curves are overlaid,
+             both only at the largest position ($z^*=50$) where they are actually valid
+             comparisons: the dashed curve is the corrected formula~\eqref{eq:analytical_temperature}
+             used throughout this report; the dotted curve is the formula exactly as given in the
+             assignment sheet (doubled radial-term coefficients, see
+             Report/temperature\_formula\_review.md). The numerical $z^*=49.9$ curve tracks the
+             corrected (dashed) reference closely, while the assignment-sheet (dotted) curve is
+             far from the numerical solution at every radius -- visual confirmation, independent of
+             the analytical re-derivations, that the corrected coefficients are the appropriate
+             comparison. Both reference formulas are \emph{fully-developed asymptotes}: they are
+             only meant to be reached for increasing $z^*$, not valid predictions at every $z^*$ --
+             evaluated at small $z^*$ (e.g. $z^*=4.9$) either would extrapolate to strongly negative
+             $\theta$ near the centreline (a mathematical artifact of the $4z^*$ term not yet
+             compensating for the formula's negative radial offset, worse for the assignment-sheet
+             version), unlike the actual numerical solution, which is always non-negative (bounded
+             below by zero given the zero-inlet condition and heating-only wall BC) -- hence neither
+             is plotted at those smaller-$z^*$ positions here.}
     \label{fig:T_profiles}
 \end{figure}
 
@@ -769,9 +807,13 @@ The solver uses a staggered grid with 2nd-order upwind (linear upwind) differenc
 
 The numerical results reproduce the expected physics:
 \begin{itemize}
-    \item The velocity field develops from a uniform inlet profile to the parabolic Hagen--Poiseuille profile within the hydrodynamic entry length.
-    \item The temperature field shows the characteristic linear increase along the pipe axis and the radial profile matches the analytical solution for constant wall heat flux.
-    \item The comparison at $z^* = 50$ shows good agreement between the numerical and analytical solutions for both velocity and temperature.
+    \item The velocity field develops from a uniform inlet profile to the parabolic Hagen--Poiseuille profile within the hydrodynamic entry length. At $z^*=50$ the numerical and analytical
+          Hagen--Poiseuille profiles agree to within $\mathcal{O}(10^{-4})$ (Fig.~\ref{fig:w_comparison}) -- the velocity field is essentially fully converged and validated.
+    \item The temperature field shows the characteristic linear rise of the bulk temperature along the pipe axis ($\theta_{\text{bulk}}\approx4z^*$, confirmed to within $\sim$1\% at $z^*=29.9$; see
+          Section~\ref{sec:nusselt-check}) and a radial profile that approaches the analytical fully-developed solution as $z^*$ increases (Fig.~\ref{fig:T_profiles}), as expected since that solution
+          is only valid asymptotically. Agreement is closest where the flow has had the most settling time; near the outlet ($z^*\to50$) a visible gap remains, consistent with both the limited
+          settling margin there (Section~\ref{sec:nusselt-check}) and the temperature field not yet being at true temporal steady state (see Convergence History above) -- this is reported honestly
+          rather than claimed as a close match at every $z^*$.
 \end{itemize}
 
 \newpage
@@ -811,7 +853,7 @@ The complete source code is provided below for the key solver functions.
 \lstinputlisting[caption={upwind2\_face.m --- 2nd-order upwind (linear-extrapolation) face-value helper}, label={lst:upwind2}]{../src_matlab/upwind2_face.m}
 \lstinputlisting[caption={compute\_rhs\_w.m --- Axial momentum RHS: 2nd-order upwind convection, central diffusion}, label={lst:rhsw}]{../src_matlab/compute_rhs_w.m}
 \lstinputlisting[caption={compute\_rhs\_u.m --- Radial momentum RHS: 2nd-order upwind convection, central diffusion}, label={lst:rhsu}]{../src_matlab/compute_rhs_u.m}
-\lstinputlisting[caption={rk2\_step.m --- Explicit 2nd-order (Heun/RK2) time step with single-projection pressure correction}, label={lst:rk2}]{../src_matlab/rk2_step.m}
+\lstinputlisting[caption={rk2\_step.m --- Explicit 2nd-order (Heun/RK2) time step with per-stage projected pressure correction (two Poisson solves per step)}, label={lst:rk2}]{../src_matlab/rk2_step.m}
 
 \subsection{Poisson Solver and Pressure Correction}
 \lstinputlisting[caption={build\_poisson\_matrix.m --- Sparse Poisson matrix assembly}, label={lst:buildA}]{../src_matlab/build_poisson_matrix.m}

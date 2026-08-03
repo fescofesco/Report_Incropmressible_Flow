@@ -151,15 +151,20 @@ where $\alpha = \lambda/(\rho c_v)$ is the thermal diffusivity.
 \begin{align}
     u(D/2, z) &= 0 \\
     w(D/2, z) &= 0 \\
-    -\lambda\parder{T}{r}\bigg|_{r=D/2} &= q_w
+    \lambda\parder{T}{r}\bigg|_{r=D/2} &= q_w
 \end{align}
+(Heat flows into the fluid at the wall, so with $r$ increasing outward this is a
+positive gradient: the wall is hotter than the centerline.)
 
 \textbf{Centerline} ($r = 0$, symmetry):
 \begin{align}
-    \parder{u}{r}\bigg|_{r=0} &= 0 \quad \text{(or } u(0,z) = 0\text{)}\\
+    u(0, z) &= 0 \\
     \parder{w}{r}\bigg|_{r=0} &= 0 \\
     \parder{T}{r}\bigg|_{r=0} &= 0
 \end{align}
+($u=0$ is the essential (Dirichlet) condition here for the antisymmetric radial
+velocity -- not interchangeable with $\partial u/\partial r=0$, which is a symmetry
+statement appropriate for the even quantities $w$, $T$, not the primary condition on $u$.)
 
 \textbf{Outlet} ($z = L$):
 \begin{equation}
@@ -231,12 +236,16 @@ Substituting the non-dimensional variables into equations~\eqref{eq:continuity_d
 
 \textbf{Wall} ($r^* = 1/2$):
 \begin{equation}
-    u^* = 0, \quad w^* = 0, \quad \parder{\theta}{r^*} = -1
+    u^* = 0, \quad w^* = 0, \quad \parder{\theta}{r^*} = \Rey\Pran
 \end{equation}
+Non-dimensionalizing directly: $\partial\theta/\partial r^* = D\cdot(\rho c_v W_{\text{in}}/q_w)\cdot\partial T/\partial r|_{\text{wall}} = D\cdot(\rho c_v W_{\text{in}}/q_w)\cdot(q_w/\lambda) = \rho c_v W_{\text{in}} D/\lambda = \Rey\Pran$
+(500 for $\Rey=100,\Pran=5$) -- \emph{not} $\pm1$, since the reference length/temperature
+scales do not cancel. See \texttt{Report/temperature\_formula\_review.md} for the full
+re-derivation.
 
 \textbf{Centerline} ($r^* = 0$):
 \begin{equation}
-    \parder{u^*}{r^*} = 0 \text{ (or } u^* = 0\text{)}, \quad \parder{w^*}{r^*} = 0, \quad \parder{\theta}{r^*} = 0
+    u^* = 0, \quad \parder{w^*}{r^*} = 0, \quad \parder{\theta}{r^*} = 0
 \end{equation}
 
 \textbf{Outlet} ($z^* = L/D = 50$):
@@ -466,14 +475,20 @@ The centerline velocity is:
 
 The fully developed temperature profile for constant wall heat flux:
 \begin{equation}
-    \theta = \frac{(T - T_{\text{in}})\rho c_v W_{\text{in}}}{q_w} = 4\frac{z}{D} + \Rey\Pran\left[\left(\frac{2r}{D}\right)^2 - \frac{1}{4}\left(\frac{2r}{D}\right)^4 - \frac{3}{4}\right]
+    \theta = \frac{(T - T_{\text{in}})\rho c_v W_{\text{in}}}{q_w} = 4\frac{z}{D} + \Rey\Pran\left[\frac{1}{2}\left(\frac{2r}{D}\right)^2 - \frac{1}{8}\left(\frac{2r}{D}\right)^4 - \frac{7}{48}\right]
     \label{eq:analytical_temperature}
 \end{equation}
 
 or in non-dimensional form:
 \begin{equation}
-    \theta = 4z^* + \Rey\Pran\left[(2r^*)^2 - \frac{1}{4}(2r^*)^4 - \frac{3}{4}\right]
+    \theta = 4z^* + \Rey\Pran\left[\frac{1}{2}(2r^*)^2 - \frac{1}{8}(2r^*)^4 - \frac{7}{48}\right]
 \end{equation}
+\emph{Note:} the assignment sheet states this with the radial-term coefficients doubled
+($(2r^*)^2-\frac14(2r^*)^4-\frac34$). Four independent re-derivations from the energy
+equation, plus an empirical check against the CFD solution itself, support the halved
+coefficients used here; see \texttt{Report/temperature\_formula\_review.md} for the full
+derivation and \texttt{TODO.md} for a reminder to cross-check this against the
+lecture-note derivation.
 
 \subsection{Nusselt Number}
 

@@ -2,10 +2,11 @@
 Main simulation loop for 2D axisymmetric incompressible pipe flow.
 
 Algorithm (per time step n → n+1) — see time_integration.rk2_step:
-  Explicit 2nd-order (Heun / RK2) momentum predictor (two RHS evaluations,
-  no pressure), a single Poisson solve/projection on the combined
-  predictor to enforce div(u^{n+1})=0, a pressure update, and a Heun step
-  for the temperature equation.
+  Explicit 2nd-order (Heun / RK2) momentum predictor: TWO Poisson
+  solves/projections per step (one to make the stage-1 intermediate
+  velocity divergence-free before evaluating the 2nd RHS stage, one on the
+  final combined predictor to enforce div(u^{n+1})=0), a pressure update,
+  and a Heun step for the temperature equation.
 
 Physical problem
 ----------------
@@ -33,7 +34,8 @@ from solver_poisson import build_poisson_matrix
 from time_integration import rk2_step
 from convergence import compute_residuals, check_convergence
 from analytical import (calculate_analytical_velocity_nondim,
-                         calculate_analytical_temperature_nondim)
+                         calculate_analytical_temperature_nondim,
+                         calculate_analytical_temperature_pdf_original_nondim)
 from plotting import (plot_velocity_contour_axial, plot_velocity_contour_radial,
                       plot_temperature_contour, plot_velocity_profile,
                       plot_temperature_profile, plot_convergence_history,
@@ -113,11 +115,14 @@ def main():
         u, w, p, T = u_new, w_new, p_new, T_new
 
         # ---- progress print -------------------------------------------------
+        # flush=True so progress is visible immediately when stdout is
+        # redirected to a file/log (otherwise Python buffers stdout and
+        # nothing appears until the process exits or the buffer fills).
         if step % output_interval == 0:
             print(f"  step {step:6d}/{n_steps}  "
                   f"R_cont={res['continuity']:.2e}  "
                   f"R_vel={res['momentum']:.2e}  "
-                  f"R_T={res['temperature']:.2e}")
+                  f"R_T={res['temperature']:.2e}", flush=True)
 
         if check_convergence(res, tol_continuity, tol_velocity, tol_temperature):
             print(f"\n  Converged at step {step}!")
@@ -159,7 +164,11 @@ def main():
     def theta_an(r, z):
         return calculate_analytical_temperature_nondim(r, z, Re, Pr)
 
-    ax = plot_temperature_profile(T, r_c, z_plot, z_c, theta_analytical=theta_an)
+    def theta_an_pdf(r, z):
+        return calculate_analytical_temperature_pdf_original_nondim(r, z, Re, Pr)
+
+    ax = plot_temperature_profile(T, r_c, z_plot, z_c, theta_analytical=theta_an,
+                                   theta_analytical_pdf=theta_an_pdf)
     ax.get_figure().savefig(os.path.join(PLOTS_DIR, 'T_profiles.png'), dpi=150, bbox_inches='tight')
     plt.close('all')
     print("  Saved T_profiles.png")

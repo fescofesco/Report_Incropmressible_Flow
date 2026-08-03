@@ -8,6 +8,6 @@ function T_new = advance_temperature(T, u, w, r_c, r_f, dr, dz, dt, Re, Pr)
     rhs = compute_rhs_T(T, u, w, r_c, r_f, dr, dz, Re, Pr);
     T_new = T + dt * rhs;
 
-    % Re-apply inlet BC (may be polluted by convective term at j=1)
-    T_new(:, 1) = 0.0;
+    % Inlet/outlet are enforced via ghost cells inside compute_rhs_T; no
+    % direct cell-value overwrite needed (see rk2_step.m for the rationale).
 end

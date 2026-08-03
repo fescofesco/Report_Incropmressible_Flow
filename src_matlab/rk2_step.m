@@ -68,13 +68,13 @@ function [u_new, w_new, p_new, T_new] = rk2_step(u, w, p, T, r_c, r_f, dr, dz, d
     % ---- Temperature: Heun's method, using the divergence-free INTERMEDIATE
     %      velocity (u1, w1) for the second stage's convective transport,
     %      consistent with the momentum k2 evaluation above -------------------
+    % Inlet (Dirichlet theta=0) and outlet (zero-gradient) are enforced
+    % purely through the ghost cells inside compute_rhs_T -- NOT by directly
+    % overwriting the T(:,1)/T(:,end) cell values afterwards, which would
+    % over-constrain the PDE at those half-cell-offset cell centres.
     k1_T = compute_rhs_T(T, u, w, r_c, r_f, dr, dz, Re, Pr);
     T_tilde = T + dt * k1_T;
-    T_tilde(:, 1) = 0.0;
-    T_tilde(:, end) = T_tilde(:, end-1);
 
     k2_T = compute_rhs_T(T_tilde, u1, w1, r_c, r_f, dr, dz, Re, Pr);
     T_new = T + 0.5 * dt * (k1_T + k2_T);
-    T_new(:, 1) = 0.0;
-    T_new(:, end) = T_new(:, end-1);
 end

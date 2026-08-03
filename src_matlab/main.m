@@ -1,10 +1,11 @@
 %% MAIN  Simulation loop for 2D axisymmetric incompressible pipe flow.
 %
 %  Algorithm (per time step) -- see rk2_step.m:
-%    Explicit 2nd-order (Heun / RK2) momentum predictor (two RHS
-%    evaluations, no pressure), a single Poisson solve/projection on the
-%    combined predictor to enforce div(u^{n+1})=0, a pressure update, and
-%    a Heun step for the temperature equation.
+%    Explicit 2nd-order (Heun / RK2) momentum predictor: TWO Poisson
+%    solves/projections per step (one to make the stage-1 intermediate
+%    velocity divergence-free before evaluating the 2nd RHS stage, one on
+%    the final combined predictor to enforce div(u^{n+1})=0), a pressure
+%    update, and a Heun step for the temperature equation.
 
 clear; close all; clc;
 
@@ -143,9 +144,12 @@ for k = 1:length(z_plot)
     [~, jj] = min(abs(z_c - z_plot(k)));
     plot(r_c, T(:, jj), '-o', 'MarkerSize', 3, 'DisplayName', sprintf('z*=%.0f', z_plot(k)));
 end
-% Analytical at z*=50
+% Analytical at z*=50 -- both candidate formulas, for direct comparison
+% (see Report/temperature_formula_review.md)
 theta_an = analytical_temperature(r_c, 50, Re, Pr);
-plot(r_c, theta_an, 'k--', 'LineWidth', 1.5, 'DisplayName', 'Analytical (z*=50)');
+plot(r_c, theta_an, 'k--', 'LineWidth', 1.5, 'DisplayName', 'Analytical, corrected (z*=50)');
+theta_an_pdf = analytical_temperature_pdf_original(r_c, 50, Re, Pr);
+plot(r_c, theta_an_pdf, 'k:', 'LineWidth', 1.5, 'DisplayName', 'Analytical, assignment PDF (z*=50)');
 xlabel('r/D'); ylabel('\theta');
 title('Temperature profiles at selected z-positions');
 legend('Location', 'best'); grid on;

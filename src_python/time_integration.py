@@ -93,14 +93,18 @@ def rk2_step(u, w, p, T, r_c, r_f, dr, dz, dt, Re, Pr, n_r, n_z, A_poisson, alph
     # ---- Temperature: Heun's method, using the divergence-free INTERMEDIATE
     #      velocity (u1, w1) for the second stage's convective transport,
     #      consistent with the momentum k2 evaluation above -------------------
+    # Inlet (Dirichlet theta=0) and outlet (zero-gradient) are enforced purely
+    # through the ghost cells inside compute_rhs_T (T_ghost_in=-T[:,0] and
+    # T_ghost_out=T[:,-1], giving the correct face values by construction) --
+    # NOT by directly overwriting the T[:,0]/T[:,-1] cell values afterwards.
+    # T[:,0] and T[:,-1] are cell centres a half-cell away from the actual
+    # inlet/outlet faces, so clamping them to the face value directly
+    # over-constrains the PDE and is inconsistent with the ghost-cell
+    # treatment already used for computing the fluxes.
     k1_T = compute_rhs_T(T, u, w, r_c, r_f, dr, dz, Re, Pr)
     T_tilde = T + dt * k1_T
-    T_tilde[:, 0] = 0.0
-    T_tilde[:, -1] = T_tilde[:, -2]
 
     k2_T = compute_rhs_T(T_tilde, u1, w1, r_c, r_f, dr, dz, Re, Pr)
     T_new = T + 0.5 * dt * (k1_T + k2_T)
-    T_new[:, 0] = 0.0
-    T_new[:, -1] = T_new[:, -2]
 
     return u_new, w_new, p_new, T_new

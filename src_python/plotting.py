@@ -162,7 +162,8 @@ def plot_velocity_profile(w_star, r_grid, z_positions, z_grid, w_analytical=None
     return ax
 
 
-def plot_temperature_profile(theta, r_grid, z_positions, z_grid, theta_analytical=None):
+def plot_temperature_profile(theta, r_grid, z_positions, z_grid, theta_analytical=None,
+                              theta_analytical_pdf=None):
     """
     Plot temperature profiles at selected axial positions
 
@@ -177,7 +178,17 @@ def plot_temperature_profile(theta, r_grid, z_positions, z_grid, theta_analytica
     z_grid : ndarray (n_z,)
         Axial grid coordinates
     theta_analytical : callable, optional
-        Function theta_analytical(r, z) for fully developed profile
+        Function theta_analytical(r, z) for the re-derived/corrected
+        fully-developed profile (see analytical.py::calculate_analytical_temperature).
+        Only plotted ONCE, at the last (largest) z_position -- that formula is the
+        fully-developed asymptote and is not a valid prediction at the smaller
+        z_positions (it can extrapolate to negative theta there; see
+        Report/temperature_formula_review.md).
+    theta_analytical_pdf : callable, optional
+        Same signature, but for the formula EXACTLY as given in the assignment PDF
+        (analytical.py::calculate_analytical_temperature_pdf_original), plotted
+        alongside theta_analytical for direct comparison of the two candidate
+        formulas against the numerical solution.
 
     Returns:
     --------
@@ -194,10 +205,18 @@ def plot_temperature_profile(theta, r_grid, z_positions, z_grid, theta_analytica
         ax.plot(r_grid, theta_profile, 'o-', color=colors[i],
                 label=f'z/D = {z_grid[z_idx]:.1f}', markersize=4)
 
-        if theta_analytical is not None:
-            theta_analytical_values = theta_analytical(r_grid, z_grid[z_idx])
-            ax.plot(r_grid, theta_analytical_values, '--', color=colors[i],
-                    linewidth=2, alpha=0.7)
+    z_fd_idx = np.argmin(np.abs(z_grid - z_positions[-1]))
+    z_fd = z_grid[z_fd_idx]
+
+    if theta_analytical is not None:
+        theta_analytical_values = theta_analytical(r_grid, z_fd)
+        ax.plot(r_grid, theta_analytical_values, 'k--', linewidth=2,
+                label=f'Analytical, corrected (z/D={z_fd:.0f})')
+
+    if theta_analytical_pdf is not None:
+        theta_analytical_pdf_values = theta_analytical_pdf(r_grid, z_fd)
+        ax.plot(r_grid, theta_analytical_pdf_values, 'k:', linewidth=2,
+                label=f'Analytical, assignment PDF (z/D={z_fd:.0f})')
 
     ax.set_xlabel('r/D')
     ax.set_ylabel('(T-T_in)·ρ·W_in·c_v/q_w')

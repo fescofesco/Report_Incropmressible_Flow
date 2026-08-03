@@ -92,18 +92,23 @@ def apply_bc_T(T, dr, n_r, Re, Pr):
     This is implemented as a ghost-cell value inside solver_temperature.py:
         T_ghost_wall = T[n_r-1, :] + dr * Re*Pr
 
+    Inlet (Dirichlet θ=0) and outlet (zero-gradient) are likewise enforced
+    purely through ghost cells inside compute_rhs_T (T_ghost_in=-T[:,0],
+    T_ghost_out=T[:,-1]) -- NOT by overwriting the T[:,0]/T[:,-1] cell
+    values here. Those are cell centres a half-cell away from the actual
+    inlet/outlet faces, so clamping them directly would over-constrain the
+    PDE and is inconsistent with the ghost-cell treatment used everywhere
+    else. This function is therefore a no-op for T; kept only so
+    apply_all_bc has a uniform interface across u, w, T.
+
     Parameters
     ----------
-    T    : ndarray (n_r, n_z)  modified in-place
+    T    : ndarray (n_r, n_z)  unused (no-op, see above)
     dr   : float
     n_r  : int
-    Re, Pr : float  (not used for T array itself, but kept for signature clarity)
-
-    Note: The wall BC is applied via ghost values inside solver_temperature;
-    here we only enforce inlet and outlet conditions on the T array.
+    Re, Pr : float  (unused; kept for signature compatibility)
     """
-    T[:, 0]  = 0.0              # inlet: θ = 0
-    T[:, -1] = T[:, -2]         # outlet: zero-gradient ∂θ/∂z = 0
+    pass
 
 
 # ---------------------------------------------------------------------------
