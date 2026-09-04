@@ -2,18 +2,28 @@
 
 ## Verify before submitting
 
-- [ ] **Double-check the corrected fully-developed temperature formula against lecture
-      notes / course materials.** The assignment PDF states
-      `θ = 4z* + Re·Pr[(2r*)² - (1/4)(2r*)⁴ - 3/4]`, but the code now uses
-      `θ = 4z* + Re·Pr[½(2r*)² - ⅛(2r*)⁴ - 7/48]` (half the radial-term coefficients,
-      constant re-derived from energy balance). This rests on 4 independent analytical
-      derivations plus a properly-redone empirical check against the CFD solution
-      (`Nu ≈ 4.6` at `z*=29.9`, within ~5% of the classical 48/11≈4.36, vs. ≈2.18
-      implied by the sheet's literal coefficients) — see
-      `Report/temperature_formula_review.md`. Still worth a sanity check against the
-      professor's derivation/lecture notes before submitting.
-      Affects: `src_python/analytical.py`, `src_matlab/analytical_temperature.m`,
-      `Report/main.tex`, `Report/All_derivations.tex` — all already updated.
+- [x] **Corrected fully-developed temperature formula — CONFIRMED.** The original assignment
+      PDF stated `θ = 4z* + Re·Pr[(2r*)² - (1/4)(2r*)⁴ - 3/4]`; the code/report use
+      `θ = 4z* + Re·Pr[½(2r*)² - ⅛(2r*)⁴ - 7/48]` (factor `½` on the radial terms, constant
+      re-derived from the global energy balance so `θ_bulk = 4z*` for all `z* ≥ 0`). The
+      course instructor confirmed by email (2026-08-31) that the assignment formula is wrong
+      on both counts and that the corrected form is to be used; the still-present caveat is
+      only that the analytical *radial shape* is not valid inside the thermal entry length
+      (`z* ≲ 25`) — inherent to any fully-developed reference, not fixable. Full derivation,
+      literature sources (Shah & London 1978; Incropera & DeWitt; Kays & Crawford), and the
+      arithmetic for both candidate profiles are in `Report/nusselt_number_analysis.md`
+      (`Report/temperature_formula_review.md` is now a pointer to it). New report subsection
+      `Validity of the Fully-Developed Temperature Profile` (`\label{sec:fd-validity}`)
+      explains bulk-level-exact vs. shape-only-asymptotic. `.tex` files carry no instructor
+      attribution — the correction is presented as a from-first-principles derivation.
+      The original PDF is kept as `Assignemnt/Assignment_WS25_error.pdf`; the canonical
+      `Assignemnt/Assignment_WS25.pdf` is now a corrected transcription (the version the
+      report embeds via `\includepdf`).
+
+- Two-variant ("assignment-form") report: **dropped.** The instructor said to use the
+  corrected form, so there is no reason to also build a report around the erroneous
+  `Nu = 24/11` profile. Plan file `~/.claude/plans/do-you-see-the-resilient-neumann.md` is
+  obsolete.
 
 ## Known limitations (deliberately not fixed this pass — documented, not silent)
 
@@ -41,6 +51,16 @@
 
 ## Done
 
+- [x] **Wrote `Report/nusselt_number_analysis.md`** — standalone, submission-quality: the
+      from-first-principles derivation that constant-wall-heat-flux fully-developed laminar
+      pipe flow has `Nu = 48/11` exactly (linear BVP, no free parameters), literature sources
+      (Shah & London 1978; Incropera & DeWitt; Kays & Crawford), the full derivation that the
+      assignment-literal coefficients instead give `Nu = 24/11` (= ½·48/11, and violates
+      `θ_bulk = 4z*`), the wall-slope contrast (`Re·Pr` vs `2·Re·Pr`), and the empirical
+      CFD table. Arithmetic verified numerically + symbolically. `temperature_formula_review.md`
+      reduced to a pointer. Expanded the Nusselt subsection (with derivation + `\cite`s +
+      a new `thebibliography`) in `Report/main.tex` and `Report/All_derivations.tex`; both
+      recompile clean (main.pdf 49 pp, All_derivations.pdf 40 pp, no undefined refs/cites).
 - [x] Fix wall temperature BC (`+Re·Pr` instead of `-1`) in Python and MATLAB.
 - [x] Upgrade both solvers to explicit 2nd-order (Heun/RK2) time integration.
 - [x] Upgrade convective discretization to 2nd-order upwind (LUD) in both solvers.
@@ -145,18 +165,15 @@
       confusing negative dashed curves discussed above. Now both languages present the
       same, less misleading plot: numerical profiles at all positions, one analytical
       reference curve at z*=50 only.
-- [x] **Added the assignment-PDF-literal temperature formula as a separate function**
-      (`calculate_analytical_temperature_pdf_original`/`_nondim` in Python,
-      `analytical_temperature_pdf_original.m` in MATLAB) alongside the corrected one, and
-      updated `T_profiles.png` to plot both at z*=50 for direct visual comparison against
-      the numerical solution. Confirms visually (re-verified `Report/temperature_formula_review.md`
-      section F) what the analytical derivations and Nu-check already showed: the
-      numerical curve tracks the corrected formula closely, while the assignment-literal
-      formula is far off (negative at the centreline, ~120 low there vs. numerical) at
-      every radius.
+- [x] **Removed the obsolete erroneous-PDF comparison from the final plotting path.**
+      The approved assignment now contains the corrected profile, so both Python and MATLAB
+      plot that single approved fully-developed curve at the last actual scalar location
+      (`z*=49.9`) against the numerical solution. The historical discrepancy remains documented
+      in `Report/temperature_formula_review.md`.
 
 ## Still open
 
-- [ ] Re-run the full 30,000-step simulation in Python and MATLAB one more time with the
-      temperature boundary-condition fix applied (the last full runs predate it), and
-      regenerate `Plots_python/`/`Plots_matlab/` + re-check whether the Nu numbers shifted.
+- [x] Re-ran the full 30,000-step simulation in Python and MATLAB after the exact inlet
+      convective-temperature boundary fix. Both runs give the same residual history
+      (`R_T=2.19` at `t*=60`) and regenerated `Plots_python/`/`Plots_matlab/` using the
+      approved assignment profile at the actual last scalar location `z*=49.9`.

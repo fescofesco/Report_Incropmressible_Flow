@@ -42,6 +42,7 @@ end
 fprintf('\nAssembling Poisson matrix ...\n');
 A_poisson = build_poisson_matrix(r_c, r_f, dr, dz, n_r, n_z);
 fprintf('  Matrix size: %d x %d, nnz = %d\n', size(A_poisson,1), size(A_poisson,2), nnz(A_poisson));
+poisson_solver = decomposition(A_poisson, 'lu');
 
 %% History arrays
 hist_cont = zeros(n_steps, 1);
@@ -55,10 +56,10 @@ converged_step = 0;
 for step = 1:n_steps
 
     % 2nd-order explicit (Heun/RK2) step: momentum + Poisson + temperature
-    [u_new, w_new, p_new, T_new] = rk2_step(u, w, p, T, r_c, r_f, dr, dz, dt, Re, Pr, n_r, n_z, A_poisson, alpha_p);
+    [u_new, w_new, p_new, T_new] = rk2_step(u, w, p, T, r_c, r_f, dr, dz, dt, Re, Pr, n_r, n_z, poisson_solver, alpha_p);
 
     % Convergence check
-    res = compute_residuals(w_new, w, T_new, T, u_new, w_new, r_c, r_f, dr, dz, dt);
+    res = compute_residuals(u_new, u, w_new, w, T_new, T, r_c, r_f, dr, dz, dt);
     hist_cont(step) = res.continuity;
     hist_vel(step)  = res.momentum;
     hist_temp(step) = res.temperature;
@@ -81,6 +82,7 @@ end
 
 if converged_step == 0
     converged_step = n_steps;
+    warning('Maximum step count reached before all convergence tolerances were met.');
 end
 fprintf('\nTime integration finished.\n');
 
@@ -144,12 +146,13 @@ for k = 1:length(z_plot)
     [~, jj] = min(abs(z_c - z_plot(k)));
     plot(r_c, T(:, jj), '-o', 'MarkerSize', 3, 'DisplayName', sprintf('z*=%.0f', z_plot(k)));
 end
-% Analytical at z*=50 -- both candidate formulas, for direct comparison
-% (see Report/temperature_formula_review.md)
-theta_an = analytical_temperature(r_c, 50, Re, Pr);
-plot(r_c, theta_an, 'k--', 'LineWidth', 1.5, 'DisplayName', 'Analytical, corrected (z*=50)');
-theta_an_pdf = analytical_temperature_pdf_original(r_c, 50, Re, Pr);
-plot(r_c, theta_an_pdf, 'k:', 'LineWidth', 1.5, 'DisplayName', 'Analytical, assignment PDF (z*=50)');
+% Analytical fully-developed profile at z*=50 (approved form; see
+% Report/nusselt_number_analysis.md)
+[~, j_Tfd] = min(abs(z_c - z_plot(end)));
+z_Tfd = z_c(j_Tfd);
+theta_an = analytical_temperature(r_c, z_Tfd, Re, Pr);
+plot(r_c, theta_an, 'k--', 'LineWidth', 1.5, ...
+    'DisplayName', sprintf('Approved assignment, fully developed (z*=%.1f)', z_Tfd));
 xlabel('r/D'); ylabel('\theta');
 title('Temperature profiles at selected z-positions');
 legend('Location', 'best'); grid on;

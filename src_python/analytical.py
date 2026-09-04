@@ -40,20 +40,20 @@ def calculate_analytical_temperature(r_grid, z, Re, Pr, D=1.0):
 
     Where θ = (T - T_in)*ρ*W_in*c_v/q_w
 
-    NOTE: the assignment PDF states this with coefficients (2r/D)² - (1/4)(2r/D)⁴ - 3/4
-    (i.e. double the radial-term coefficients used here). Re-derivation from the
-    energy equation (three independent methods), a cross-check against the classic
-    Nu=48/11 result for constant-heat-flux pipe flow (see
-    calculate_nusselt_number_fully_developed below), AND an empirical check against
-    the actual CFD solution (θ_wall-θ_center ≈ 111 numerically vs. 185 predicted by
-    this corrected formula vs. 370 predicted by the PDF-literal formula) all point to
-    the coefficients here being correct and the PDF's being off by a factor of 2.
-    See Report/temperature_formula_review.md for the full derivation.
+    This is the approved fully-developed profile. It is obtained by direct
+    integration of the non-dimensional energy equation with the wall condition
+    ∂θ/∂r* = Re*Pr; the constant -7/48 follows from the exact global energy balance
+    (the flow-weighted/bulk average of the radial bracket must vanish, so
+    θ_bulk = 4z* for all z >= 0). It gives Nu = 48/11 (see
+    calculate_nusselt_number_fully_developed). An earlier transcription of the
+    assignment printed the radial terms without the factor 1/2 and with -3/4 instead
+    of -7/48 (that form gives Nu = 24/11 and violates θ_bulk = 4z*); it is not used
+    anywhere in this codebase. Full derivation and sources:
+    Report/nusselt_number_analysis.md.
 
-    The constant term (7/48) is not halved naively; it's independently re-derived
-    from the exact global energy balance, which requires the flow-weighted (bulk)
-    average of the radial bracket to vanish (so θ_bulk = 4z* exactly, matching mass/
-    energy conservation from the inlet, at every z, not just asymptotically).
+    Caveat (inherent, not a bug): the radial *shape* of this profile is only valid
+    once the flow is thermally fully developed (z* beyond ~25); the *level*
+    θ_bulk = 4z* is correct from the inlet on.
 
     Parameters:
     -----------
@@ -86,49 +86,6 @@ def calculate_analytical_temperature(r_grid, z, Re, Pr, D=1.0):
     return theta_analytical
 
 
-def calculate_analytical_temperature_pdf_original(r_grid, z, Re, Pr, D=1.0):
-    """
-    Calculate the analytical temperature profile EXACTLY as literally given in the
-    assignment PDF (Assignemnt/Assignment_WS25.pdf, page 2), for direct side-by-side
-    comparison with calculate_analytical_temperature (the re-derived/corrected version
-    used elsewhere in this codebase).
-
-    Profile: θ = 4*(z/D) + Re*Pr*[(2r/D)² - (1/4)*(2r/D)⁴ - 3/4]
-
-    This is the formula as transcribed from the assignment; it has NOT been
-    independently re-derived (unlike calculate_analytical_temperature) and four
-    analytical derivations plus an empirical check against the CFD solution suggest
-    its radial-term coefficients are double what they should be -- see
-    Report/temperature_formula_review.md for the full analysis. Kept here so both
-    versions can be plotted/compared directly rather than silently replacing one
-    with the other.
-
-    Parameters:
-    -----------
-    r_grid : ndarray
-        Non-dimensional radial coordinates (r/D)
-    z : float
-        Non-dimensional axial position (z/D)
-    Re : float
-        Reynolds number
-    Pr : float
-        Prandtl number
-    D : float, optional
-        Pipe diameter (default 1.0 for non-dimensional)
-
-    Returns:
-    --------
-    theta_analytical : ndarray
-        Analytical non-dimensional temperature profile per the assignment PDF
-    """
-    r_ratio = 2.0 * r_grid / D
-
-    term1 = 4.0 * z / D
-    term2 = Re * Pr * (r_ratio**2 - 0.25 * r_ratio**4 - 0.75)
-
-    return term1 + term2
-
-
 def calculate_analytical_velocity_nondim(r_star):
     """
     Calculate analytical velocity profile (non-dimensional form)
@@ -153,8 +110,8 @@ def calculate_analytical_temperature_nondim(r_star, z_star, Re, Pr):
     Calculate analytical temperature profile (non-dimensional form)
 
     Profile: θ = 4*z* + Re*Pr*[(1/2)*(2*r*)² - (1/8)*(2*r*)⁴ - 7/48]
-    (see calculate_analytical_temperature for the derivation/caveat re: the
-    assignment PDF's doubled coefficients)
+    (see calculate_analytical_temperature for the derivation and
+    Report/nusselt_number_analysis.md for the full analysis)
 
     Parameters:
     -----------
@@ -173,15 +130,6 @@ def calculate_analytical_temperature_nondim(r_star, z_star, Re, Pr):
         Analytical non-dimensional temperature
     """
     return calculate_analytical_temperature(r_star, z_star, Re, Pr, D=1.0)
-
-
-def calculate_analytical_temperature_pdf_original_nondim(r_star, z_star, Re, Pr):
-    """
-    Non-dimensional-form wrapper for calculate_analytical_temperature_pdf_original
-    (the literal assignment-PDF formula, doubled radial coefficients) -- see that
-    function's docstring and Report/temperature_formula_review.md.
-    """
-    return calculate_analytical_temperature_pdf_original(r_star, z_star, Re, Pr, D=1.0)
 
 
 def calculate_centerline_velocity():

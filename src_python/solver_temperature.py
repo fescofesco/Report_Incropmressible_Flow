@@ -24,11 +24,11 @@ Wall BC:  ∂θ/∂r*|_{r*=0.5} = +Re·Pr
           θ=(T-T_in)ρc_vW_in/q_w:
               ∂θ/∂r* = D·(ρc_vW_in/q_w)·∂T/∂r = ρc_vW_inD/λ = Re·Pr
           (NOT ±1 — that earlier value dropped the Re·Pr factor from
-          the non-dimensionalization; see Report/temperature_formula_review.md)
+          the non-dimensionalization; see Report/nusselt_number_analysis.md)
           Implemented as a ghost cell:  θ_ghost[n_r, j] = θ[n_r-1, j] + dr·Re·Pr  (Neumann)
 Axis BC:  ∂θ/∂r|_{r*=0}   = 0
           Ghost: θ_ghost[-1, j] = θ[0, j]
-Inlet:    θ[:, 0] = 0   (set in apply_bc_T)
+Inlet:    θ = 0 at z*=0 (diffusive ghost plus exact prescribed inflow flux)
 Outlet:   ∂θ/∂z = 0     (ghost θ[:, n_z] = θ[:, n_z-1])
 """
 
@@ -138,6 +138,13 @@ def compute_rhs_T(T, u, w, r_c, r_f, dr, dz, Re, Pr):
     T_zf_p_upwind = upwind2_face(T_z_jm1, T_z_j, T_z_jp1, T_z_jp2, w_tp)
     # Bottom face z_f[j] (between cells j-1 and j)
     T_zf_m_upwind = upwind2_face(T_z_jm2, T_z_jm1, T_z_j, T_z_jp1, w_bt)
+
+    # At the physical inlet face the incoming transported value is prescribed,
+    # not reconstructed: theta(z*=0)=0.  The odd ghosts above are still needed
+    # for the second-order axial diffusion stencil.  Letting LUD extrapolate at
+    # this inflow face would generally produce a nonzero boundary heat flux.
+    T_zf_m_upwind[:, 0] = np.where(w_bt[:, 0] > 0.0,
+                                    0.0, T_zf_m_upwind[:, 0])
 
     conv_z = (w_tp * T_zf_p_upwind - w_bt * T_zf_m_upwind) / dz
 

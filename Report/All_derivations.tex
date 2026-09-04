@@ -483,19 +483,41 @@ or in non-dimensional form:
 \begin{equation}
     \theta = 4z^* + \Rey\Pran\left[\frac{1}{2}(2r^*)^2 - \frac{1}{8}(2r^*)^4 - \frac{7}{48}\right]
 \end{equation}
-\emph{Note:} the assignment sheet states this with the radial-term coefficients doubled
-($(2r^*)^2-\frac14(2r^*)^4-\frac34$). Four independent re-derivations from the energy
-equation, plus an empirical check against the CFD solution itself, support the halved
-coefficients used here; see \texttt{Report/temperature\_formula\_review.md} for the full
-derivation and \texttt{TODO.md} for a reminder to cross-check this against the
-lecture-note derivation.
+\emph{Note:} an earlier transcription carried the radial-term coefficients doubled
+($(2r^*)^2-\frac14(2r^*)^4-\frac34$), i.e.\ missing the factor $\tfrac12$ on $\Rey\Pran$ in the
+radial terms. Direct integration of the non-dimensional energy equation (next subsection),
+consistency with the wall condition $\lambda\,\partial T/\partial r|_{\text{wall}}=q_w$, and an
+empirical check against the CFD solution all give the coefficients used above; the constant
+$-\tfrac{7}{48}$ follows from the exact global energy balance (not simply half of $-\tfrac34$).
+See \texttt{Report/nusselt\_number\_analysis.md} for the full derivation and literature sources.
 
 \subsection{Nusselt Number}
 
-For fully developed thermal flow with constant wall heat flux (H1 boundary condition):
+For hydrodynamically and thermally fully developed laminar flow in a circular pipe with
+\emph{constant wall heat flux} (the H1 thermal boundary condition), the Nusselt number is the
+exact rational value
 \begin{equation}
-    \text{Nu} = \frac{48}{11} \approx 4.364
+    \text{Nu} = \frac{q_w D}{\lambda\,(T_{\text{wall}}-T_{\text{bulk}})}
+              = \frac{\Rey\Pran}{\theta_{\text{wall}}-\theta_{\text{bulk}}}
+              = \frac{48}{11} \approx 4.3636 .
 \end{equation}
+In the fully developed region the energy equation reduces to
+$w^*(r^*)\,\partial\theta/\partial z^* = (\Rey\Pran)^{-1}(r^*)^{-1}\partial_{r^*}(r^*\partial_{r^*}\theta)$.
+The global energy balance forces $\theta_{\text{bulk}}(z^*)=4z^*$ and hence
+$\partial\theta/\partial z^*=4$ throughout the cross-section; substituting
+$w^*=2[1-(2r^*)^2]$ and integrating twice with $\partial\theta/\partial r^*|_{0}=0$,
+$\partial\theta/\partial r^*|_{1/2}=\Rey\Pran$, then fixing the integration constant so that the
+flow-weighted mean of the radial bracket vanishes, reproduces
+Eq.~\eqref{eq:analytical_temperature} and gives
+$\theta_{\text{wall}}-\theta_{\text{bulk}}=\tfrac{11}{48}\Rey\Pran$. The problem is linear with
+no free parameters, so the value is independent of $\Rey$, $\Pran$, $q_w$, fluid properties and
+grid. The assignment sheet's literal radial coefficients instead give
+$\theta_{\text{wall}}-\theta_{\text{bulk}}=\tfrac{11}{24}\Rey\Pran$, i.e.\ $\text{Nu}=24/11
+\approx2.18$ (exactly half), which is inconsistent with both this classical result and the
+assignment's own wall condition. Standard references for $\text{Nu}=48/11$: Shah \& London,
+\emph{Laminar Flow Forced Convection in Ducts} (1978); Incropera \& DeWitt, \emph{Fundamentals
+of Heat and Mass Transfer}. Full derivation and empirical CFD cross-check in
+\texttt{Report/nusselt\_number\_analysis.md}.
 
 \newpage
 
@@ -503,7 +525,8 @@ For fully developed thermal flow with constant wall heat flux (H1 boundary condi
 
 \subsection{Convergence Criteria}
 
-The simulation is run until convergence is achieved. Convergence is monitored using residuals:
+The simulation targets convergence using the following residuals. If the maximum time is reached
+first, the achieved residuals must be reported explicitly rather than calling the field converged:
 
 \textbf{Continuity residual:}
 \begin{equation}

@@ -140,8 +140,14 @@ w_analytical = 2 * W_in * (1 - (2*r/D)²)
 
 ### Temperature Profile (Fully Developed)
 ```
-theta_analytical = 4*(z/D) + Re*Pr*[(2*r/D)² - (1/4)*(2*r/D)⁴ - 3/4]
+theta_analytical = 4*(z/D) + Re*Pr*[ (1/2)*(2*r/D)² - (1/8)*(2*r/D)⁴ - 7/48 ]
 ```
+NOTE: the original assignment PDF printed this with the radial coefficients doubled
+(`(2r/D)² - (1/4)(2r/D)⁴ - 3/4`), i.e. missing the factor 1/2 on Re*Pr. That form is a
+transcription error (it gives Nu = 24/11 instead of the classical 48/11 and violates
+theta_bulk = 4z*). The corrected form above is the one used everywhere in this repo;
+`Assignemnt/Assignment_WS25.pdf` is the corrected transcription, `Assignment_WS25_error.pdf`
+the original. See `Report/nusselt_number_analysis.md` for the full derivation.
 
 ---
 

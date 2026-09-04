@@ -3,7 +3,7 @@ Convergence monitoring for the pipe-flow simulation.
 
 Three residuals are tracked:
   R_cont  : max |div(u)| over all cells     (continuity)
-  R_vel   : max |w^{n+1} - w^n| / dt       (momentum change rate)
+  R_vel   : max change rate of both u and w (momentum change rate)
   R_temp  : max |θ^{n+1} - θ^n| / dt       (temperature change rate)
 """
 
@@ -39,24 +39,27 @@ def compute_divergence(u, w, r_c, r_f, dr, dz):
     return div_u + div_w
 
 
-def compute_residuals(w_new, w_old, T_new, T_old, u, w, r_c, r_f, dr, dz, dt):
+def compute_residuals(u_new, u_old, w_new, w_old, T_new, T_old,
+                      r_c, r_f, dr, dz, dt):
     """
     Compute all residuals for convergence checking.
 
     Parameters
     ----------
+    u_new, u_old : ndarray (n_r+1, n_z)
     w_new, w_old : ndarray (n_r, n_z+1)
     T_new, T_old : ndarray (n_r, n_z)
-    u            : ndarray (n_r+1, n_z)   current (corrected) u
-    w            : ndarray (n_r, n_z+1)   current (corrected) w
     r_c, r_f, dr, dz, dt : as usual
 
     Returns
     -------
     residuals : dict with keys 'continuity', 'momentum', 'temperature'
     """
-    R_cont = float(np.max(np.abs(compute_divergence(u, w, r_c, r_f, dr, dz))))
-    R_vel  = float(np.max(np.abs(w_new[:, 1:-1] - w_old[:, 1:-1])) / dt)
+    R_cont = float(np.max(np.abs(compute_divergence(
+        u_new, w_new, r_c, r_f, dr, dz))))
+    R_u = np.max(np.abs(u_new[1:-1, :] - u_old[1:-1, :]))
+    R_w = np.max(np.abs(w_new[:, 1:-1] - w_old[:, 1:-1]))
+    R_vel = float(max(R_u, R_w) / dt)
     R_temp = float(np.max(np.abs(T_new - T_old)) / dt)
 
     return {

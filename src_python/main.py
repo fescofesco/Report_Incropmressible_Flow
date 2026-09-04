@@ -21,6 +21,7 @@ import numpy as np
 import matplotlib
 matplotlib.use('Agg')   # non-interactive backend for saving figures
 import matplotlib.pyplot as plt
+import scipy.sparse.linalg as spla
 
 # Ensure src_python is on the path when running from repo root
 sys.path.insert(0, os.path.dirname(__file__))
@@ -34,8 +35,7 @@ from solver_poisson import build_poisson_matrix
 from time_integration import rk2_step
 from convergence import compute_residuals, check_convergence
 from analytical import (calculate_analytical_velocity_nondim,
-                         calculate_analytical_temperature_nondim,
-                         calculate_analytical_temperature_pdf_original_nondim)
+                         calculate_analytical_temperature_nondim)
 from plotting import (plot_velocity_contour_axial, plot_velocity_contour_radial,
                       plot_temperature_contour, plot_velocity_profile,
                       plot_temperature_profile, plot_convergence_history,
@@ -93,6 +93,7 @@ def main():
     print("\nAssembling Poisson matrix ...")
     A_poisson = build_poisson_matrix(r_c, r_f, dr, dz, n_r, n_z)
     print(f"  Matrix size: {A_poisson.shape}, nnz={A_poisson.nnz}")
+    poisson_solve = spla.factorized(A_poisson.tocsc())
 
     # ---- history arrays for convergence -------------------------------------
     hist = {'continuity': [], 'momentum': [], 'temperature': []}
@@ -103,10 +104,10 @@ def main():
 
         # ---- 2nd-order explicit (Heun/RK2) step: momentum + Poisson + temp --
         u_new, w_new, p_new, T_new = rk2_step(
-            u, w, p, T, r_c, r_f, dr, dz, dt, Re, Pr, n_r, n_z, A_poisson, alpha_p)
+            u, w, p, T, r_c, r_f, dr, dz, dt, Re, Pr, n_r, n_z, poisson_solve, alpha_p)
 
         # ---- Convergence check ------------------------------------------------
-        res = compute_residuals(w_new, w, T_new, T, u_new, w_new,
+        res = compute_residuals(u_new, u, w_new, w, T_new, T,
                                 r_c, r_f, dr, dz, dt)
         for key in hist:
             hist[key].append(res[key])
@@ -127,6 +128,10 @@ def main():
         if check_convergence(res, tol_continuity, tol_velocity, tol_temperature):
             print(f"\n  Converged at step {step}!")
             break
+
+    else:
+        print("\nWARNING: maximum step count reached before all convergence "
+              "tolerances were met.")
 
     print("\nTime integration finished.")
 
@@ -164,11 +169,7 @@ def main():
     def theta_an(r, z):
         return calculate_analytical_temperature_nondim(r, z, Re, Pr)
 
-    def theta_an_pdf(r, z):
-        return calculate_analytical_temperature_pdf_original_nondim(r, z, Re, Pr)
-
-    ax = plot_temperature_profile(T, r_c, z_plot, z_c, theta_analytical=theta_an,
-                                   theta_analytical_pdf=theta_an_pdf)
+    ax = plot_temperature_profile(T, r_c, z_plot, z_c, theta_analytical=theta_an)
     ax.get_figure().savefig(os.path.join(PLOTS_DIR, 'T_profiles.png'), dpi=150, bbox_inches='tight')
     plt.close('all')
     print("  Saved T_profiles.png")

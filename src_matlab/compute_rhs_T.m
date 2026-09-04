@@ -8,7 +8,7 @@ function rhs = compute_rhs_T(T, u, w, r_c, r_f, dr, dz, Re, Pr)
 %   scheme -- see upwind2_face.m. Diffusive terms use standard 2nd-order
 %   central differencing.
 %
-%   Wall BC: dtheta/dr* = +Re*Pr (see Report/temperature_formula_review.md
+%   Wall BC: dtheta/dr* = +Re*Pr (see Report/nusselt_number_analysis.md
 %   for the derivation -- NOT -1, which drops the Re*Pr factor from the
 %   non-dimensionalization).
 %   Implemented as a ghost cell: theta_ghost(n_r+1,:) = theta(n_r,:) + dr*Re*Pr
@@ -74,6 +74,12 @@ function rhs = compute_rhs_T(T, u, w, r_c, r_f, dr, dz, Re, Pr)
 
     T_zf_p_upwind = upwind2_face(T_z_jm1, T_z_j, T_z_jp1, T_z_jp2, w_tp);
     T_zf_m_upwind = upwind2_face(T_z_jm2, T_z_jm1, T_z_j, T_z_jp1, w_bt);
+
+    % At the physical inlet face the incoming transported value is the
+    % prescribed Dirichlet value theta=0, not a LUD reconstruction. The odd
+    % ghosts remain necessary for the second-order axial diffusion stencil.
+    inflow = w_bt(:, 1) > 0.0;
+    T_zf_m_upwind(inflow, 1) = 0.0;
 
     conv_z = (w_tp .* T_zf_p_upwind - w_bt .* T_zf_m_upwind) / dz;
 

@@ -162,8 +162,7 @@ def plot_velocity_profile(w_star, r_grid, z_positions, z_grid, w_analytical=None
     return ax
 
 
-def plot_temperature_profile(theta, r_grid, z_positions, z_grid, theta_analytical=None,
-                              theta_analytical_pdf=None):
+def plot_temperature_profile(theta, r_grid, z_positions, z_grid, theta_analytical=None):
     """
     Plot temperature profiles at selected axial positions
 
@@ -178,17 +177,11 @@ def plot_temperature_profile(theta, r_grid, z_positions, z_grid, theta_analytica
     z_grid : ndarray (n_z,)
         Axial grid coordinates
     theta_analytical : callable, optional
-        Function theta_analytical(r, z) for the re-derived/corrected
-        fully-developed profile (see analytical.py::calculate_analytical_temperature).
-        Only plotted ONCE, at the last (largest) z_position -- that formula is the
-        fully-developed asymptote and is not a valid prediction at the smaller
-        z_positions (it can extrapolate to negative theta there; see
-        Report/temperature_formula_review.md).
-    theta_analytical_pdf : callable, optional
-        Same signature, but for the formula EXACTLY as given in the assignment PDF
-        (analytical.py::calculate_analytical_temperature_pdf_original), plotted
-        alongside theta_analytical for direct comparison of the two candidate
-        formulas against the numerical solution.
+        Function theta_analytical(r, z) for the approved fully-developed profile
+        (see analytical.py::calculate_analytical_temperature). Only plotted ONCE, at
+        the last (largest) z_position -- that formula is the fully-developed
+        asymptote and is not a valid prediction at the smaller z_positions (it can
+        extrapolate to negative theta there; see Report/nusselt_number_analysis.md).
 
     Returns:
     --------
@@ -211,12 +204,7 @@ def plot_temperature_profile(theta, r_grid, z_positions, z_grid, theta_analytica
     if theta_analytical is not None:
         theta_analytical_values = theta_analytical(r_grid, z_fd)
         ax.plot(r_grid, theta_analytical_values, 'k--', linewidth=2,
-                label=f'Analytical, corrected (z/D={z_fd:.0f})')
-
-    if theta_analytical_pdf is not None:
-        theta_analytical_pdf_values = theta_analytical_pdf(r_grid, z_fd)
-        ax.plot(r_grid, theta_analytical_pdf_values, 'k:', linewidth=2,
-                label=f'Analytical, assignment PDF (z/D={z_fd:.0f})')
+                label=f'Approved assignment, fully developed (z/D={z_fd:.1f})')
 
     ax.set_xlabel('r/D')
     ax.set_ylabel('(T-T_in)·ρ·W_in·c_v/q_w')
@@ -291,12 +279,11 @@ def plot_comparison_with_analytical(numerical, analytical, r_grid,
     ax1.grid(True, alpha=0.3)
 
     # Error plot
-    error = numerical - analytical
+    error = np.abs(numerical - analytical)
     ax2.plot(r_grid, error, 'r-', linewidth=2)
-    ax2.axhline(y=0, color='k', linestyle='--', linewidth=1)
     ax2.set_xlabel('r/D')
-    ax2.set_ylabel('Error')
-    ax2.set_title('Numerical - Analytical')
+    ax2.set_ylabel('|Error|')
+    ax2.set_title('Absolute error')
     ax2.grid(True, alpha=0.3)
 
     plt.tight_layout()

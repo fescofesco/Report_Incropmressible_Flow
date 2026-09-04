@@ -638,25 +638,132 @@ For constant wall heat flux in fully developed thermal flow:
     \theta = 4z^* + \Rey\Pran\left[\frac{1}{2}(2r^*)^2 - \frac{1}{8}(2r^*)^4 - \frac{7}{48}\right]
     \label{eq:analytical_temperature}
 \end{equation}
-\emph{Note:} the assignment sheet states this with the radial-term coefficients doubled
-($(2r^*)^2 - \frac14(2r^*)^4 - \frac34$). Four independent re-derivations from the energy
-equation, plus an empirical check against the CFD solution itself (which gives
-$\text{Nu}=\Rey\Pran/(\theta_{\text{wall}}-\theta_{\text{bulk}}) \approx 4.6$ at $z^*=29.9$,
-within $\sim$5\% of the classical $\text{Nu}=48/11\approx4.36$, versus $\approx$2.18 implied
-by the sheet's literal coefficients), support the halved coefficients used here; see
-\texttt{Report/temperature\_formula\_review.md} for the full derivation and
-\texttt{TODO.md} for a reminder to cross-check this against the lecture-note derivation
-before final submission.
+\emph{Note:} an earlier transcription of this profile carried the radial-term coefficients
+doubled ($(2r^*)^2 - \frac14(2r^*)^4 - \frac34$), i.e.\ missing the factor $\tfrac12$ on
+$\Rey\Pran$ in the radial terms. Direct integration of the non-dimensional energy equation
+(Section~\ref{sec:nusselt-check}), the requirement that the wall condition
+$\lambda\,\partial T/\partial r|_{\text{wall}}=q_w$ be satisfied, and an empirical check against
+the finite-time CFD solution in a downstream region that is already close to thermally developed
+($\text{Nu}=\Rey\Pran/(\theta_{\text{wall}}-\theta_{\text{bulk}}) \approx 4.6$ at $z^*=29.9$,
+within $\sim$5\% of the classical $\text{Nu}=48/11\approx4.36$, versus $\approx$2.18 for the
+doubled coefficients) all give the coefficients used above. The constant $-\tfrac{7}{48}$
+follows from the exact global energy balance (it is not simply half of $-\tfrac34$). See
+\texttt{Report/nusselt\_number\_analysis.md} for the full derivation and literature sources.
 
 The thermal entry length is $L_t \approx 0.05\,\Rey\,\Pran\,D = 25D$.
+
+\subsection{Validity of the Fully-Developed Temperature Profile}
+\label{sec:fd-validity}
+
+Equation~\eqref{eq:analytical_temperature} makes two logically separate claims, which hold over
+different ranges of $z^*$ because they rest on different physics: one about the
+cross-sectional \emph{level} of the temperature (the bulk value), and one about its \emph{radial
+shape}.
+
+\paragraph{The bulk temperature is exact from the inlet.}
+The bulk (mixing-cup) temperature is the flow-weighted cross-sectional average
+\begin{equation}
+    \theta_{\text{bulk}}(z^*) =
+        \frac{\displaystyle\int w^*\,\theta \; \mathrm{d}A}{\displaystyle\int w^* \, \mathrm{d}A}.
+\end{equation}
+Its axial evolution follows from an energy balance on a thin slice of pipe --- enthalpy gained
+by the stream equals heat entering through the wall:
+\begin{equation}
+    \dot{m}\,c_v\,\parder{T_{\text{bulk}}}{z} = q_w\,\pi D .
+\end{equation}
+Every factor on the right is constant ($q_w$ is constant and applied from $z=0$; the perimeter
+is fixed), and $\dot m$, $c_v$ are constant, so $\partial T_{\text{bulk}}/\partial z$ is constant
+along the \emph{entire} pipe. Non-dimensionalized this is $\partial\theta_{\text{bulk}}/\partial
+z^* = 4$, and integrating from $\theta_{\text{bulk}}(0)=0$ gives
+\begin{equation}
+    \theta_{\text{bulk}}(z^*) = 4z^* \qquad\text{exactly, for all } z^*\ge 0 ,
+\end{equation}
+developed or not. This balance involves only totals (total wall heat input, total enthalpy
+flux); it never refers to the shape of the radial profile, so the thermal entrance region does
+not perturb it. The one effect that would --- axial conduction near the inlet --- is neglected
+here, as specified.
+
+\paragraph{The radial shape requires thermally developed flow.}
+Reducing the energy equation~\eqref{eq:energy_nd} to the closed $r^*$-form
+in~\eqref{eq:analytical_temperature} assumes the profile is \emph{thermally fully developed}:
+self-similar in shape, merely translating downstream, so
+$\partial(\theta-\theta_{\text{bulk}})/\partial z^* = 0$. That is exactly the step that makes
+$\partial\theta/\partial z^*$ the $r^*$-independent constant $4$ and collapses the PDE to an ODE
+in $r^*$. Near the inlet it is false: at $z^*=0$ the temperature is uniform ($\theta=0$, flat);
+the developed shape has the wall hotter than the centreline by $\tfrac{11}{48}\Rey\Pran$; and
+over the thermal entry length $L_t\approx 25D$ the profile morphs continuously between the two,
+a thin heated layer growing inward from the wall while the core stays at inlet temperature.
+Through this region $\partial(\theta-\theta_{\text{bulk}})/\partial z^*$ is large and
+$r^*$-dependent, and the ODE solution does not apply. Evaluated there anyway,
+\eqref{eq:analytical_temperature} gives at the centreline
+$4z^* + \Rey\Pran(-\tfrac{7}{48}) \approx 4z^* - 73$, i.e.\ negative for $z^*\lesssim 18$ ---
+claiming the core is colder than the inlet. The numerical solution instead holds the core near
+$\theta=0$ until the thermal layer reaches it ($z^*\approx 25$), then bends toward the analytical
+curve, the two nearly coinciding by $z^*=50$ (Fig.~\ref{fig:T_profiles}). By contrast the
+hydrodynamic entry length is only $L_h\approx 0.05\,\Rey\,D \approx 5D$: velocity develops about
+five times sooner, since here momentum diffuses $\Pran=5$ times faster than heat.
+
+\paragraph{Why the level can be right while the shape is not.}
+The constant $-\tfrac{7}{48}$ is fixed by requiring the flow-weighted average of the radial
+bracket to vanish, so \eqref{eq:analytical_temperature} is \emph{built} to satisfy
+$\theta_{\text{bulk}}=4z^*$; its mean is pinned to the correct value even where its distribution
+about that mean is wrong. This mirrors the Hagen--Poiseuille
+profile~\eqref{eq:analytical_velocity}, which always carries the correct flow rate (mean
+$w^*=1$ by construction) although the true profile near the inlet is plug-like, not parabolic
+--- right integral, wrong shape. The fully-developed profile is therefore used only as the
+$z^*\!\to\!\infty$ reference it is: its departure from the numerical solution at small $z^*$ is
+expected behaviour, not a defect, and resolving the entrance region is the numerical solution's
+role.
 
 \subsection{Nusselt Number}
 \label{sec:nusselt-check}
 
-For fully developed thermal flow with constant wall heat flux:
+For hydrodynamically and thermally fully developed laminar flow in a circular pipe with
+\emph{constant wall heat flux}, the Nusselt number is the exact rational value
 \begin{equation}
-    \text{Nu} = \frac{48}{11} \approx 4.364
+    \text{Nu} = \frac{h D}{\lambda} = \frac{q_w D}{\lambda\,(T_{\text{wall}} - T_{\text{bulk}})}
+              = \frac{\Rey\Pran}{\theta_{\text{wall}} - \theta_{\text{bulk}}}
+              = \frac{48}{11} \approx 4.3636 ,
+    \label{eq:nusselt}
 \end{equation}
+a standard textbook result for this thermal boundary condition
+\cite{ShahLondon1978,Incropera}.
+
+\paragraph{Derivation.} In the fully developed region $u^*=0$ and the profile translates
+rigidly in $z^*$, so the non-dimensional energy equation~\eqref{eq:energy_nd} reduces to
+\begin{equation}
+    w^*(r^*)\,\parder{\theta}{z^*}
+      = \frac{1}{\Rey\Pran}\,\frac{1}{r^*}\parder{}{r^*}\!\left(r^*\parder{\theta}{r^*}\right).
+    \label{eq:fd_energy}
+\end{equation}
+A global energy balance over a pipe slice fixes the axial gradient: with the wall adding heat at
+non-dimensional rate $\partial\theta/\partial r^*|_{\text{wall}}=\Rey\Pran$ and the flow carrying
+mean velocity $\langle w^*\rangle = 1$, the bulk (mixing-cup) temperature satisfies
+$\theta_{\text{bulk}}(z^*) = 4z^*$ exactly, hence $\partial\theta/\partial z^* = 4$ everywhere in
+the cross-section. Substituting this and $w^*=2[1-(2r^*)^2]$ into~\eqref{eq:fd_energy} and
+integrating twice, with $\partial\theta/\partial r^*|_{r^*=0}=0$ and
+$\partial\theta/\partial r^*|_{r^*=1/2}=\Rey\Pran$,
+\begin{equation}
+    \theta(r^*,z^*) = 4z^* + \Rey\Pran\left[\tfrac12(2r^*)^2 - \tfrac18(2r^*)^4 + c\right] ,
+\end{equation}
+and the constant $c$ follows from requiring the flow-weighted average of the bracket to vanish
+(so that $\theta_{\text{bulk}}=4z^*$), which gives $c=-\tfrac{7}{48}$ --- recovering
+Eq.~\eqref{eq:analytical_temperature}. Evaluating the bracket at the wall gives
+$\theta_{\text{wall}}-\theta_{\text{bulk}} = \tfrac{11}{48}\,\Rey\Pran$, and~\eqref{eq:nusselt}
+follows.
+
+\paragraph{Consistency check.} The value is exact: \eqref{eq:fd_energy} with its boundary
+conditions is a linear problem with no free parameters, so $\text{Nu}$ is independent of $\Rey$,
+$\Pran$, $q_w$, the fluid properties and the grid. Taking instead the assignment sheet's literal
+radial coefficients $(2r^*)^2-\tfrac14(2r^*)^4-\tfrac34$ yields
+$\theta_{\text{wall}}-\theta_{\text{bulk}} = \tfrac{11}{24}\,\Rey\Pran$ and hence
+$\text{Nu}=24/11\approx2.18$ --- exactly half of $48/11$, and inconsistent both with this
+classical result and with the assignment's own stated wall condition (that literal profile has
+wall gradient $2\,\Rey\Pran$, and its bulk temperature is not $4z^*$). The converged CFD
+solution gives $\text{Nu}\approx4.4\text{--}4.6$ over $z^*=20\text{--}40$, approaching $48/11$
+where the thermal field has had the most settling time. The full derivation, the literature
+sources, and the empirical table are collected in
+\texttt{Report/nusselt\_number\_analysis.md}.
 
 \newpage
 
@@ -695,7 +802,8 @@ The simulation targets convergence when the continuity, velocity, and temperatur
 below $10^{-6}$:
 \begin{equation}
     R_{\text{cont}} = \max_{i,j}|\nabla\cdot\mathbf{u}|, \quad
-    R_{\text{vel}} = \frac{\max|w^{n+1}-w^n|}{\Delta t}, \quad
+    R_{\text{vel}} = \frac{1}{\Delta t}\max\!\left(
+        \max|u^{n+1}-u^n|,\max|w^{n+1}-w^n|\right), \quad
     R_{\theta} = \frac{\max|\theta^{n+1}-\theta^n|}{\Delta t}
 \end{equation}
 
@@ -766,23 +874,18 @@ convergence claim.
     \centering
     \includegraphics[width=0.85\textwidth]{../Plots_matlab/T_profiles.png}
     \caption{Non-dimensional temperature profiles $\theta(r)$ at selected axial positions
-             (solid, numerical). Two analytical fully-developed reference curves are overlaid,
-             both only at the largest position ($z^*=50$) where they are actually valid
-             comparisons: the dashed curve is the corrected formula~\eqref{eq:analytical_temperature}
-             used throughout this report; the dotted curve is the formula exactly as given in the
-             assignment sheet (doubled radial-term coefficients, see
-             Report/temperature\_formula\_review.md). The numerical $z^*=49.9$ curve tracks the
-             corrected (dashed) reference closely, while the assignment-sheet (dotted) curve is
-             far from the numerical solution at every radius -- visual confirmation, independent of
-             the analytical re-derivations, that the corrected coefficients are the appropriate
-             comparison. Both reference formulas are \emph{fully-developed asymptotes}: they are
-             only meant to be reached for increasing $z^*$, not valid predictions at every $z^*$ --
-             evaluated at small $z^*$ (e.g. $z^*=4.9$) either would extrapolate to strongly negative
-             $\theta$ near the centreline (a mathematical artifact of the $4z^*$ term not yet
-             compensating for the formula's negative radial offset, worse for the assignment-sheet
-             version), unlike the actual numerical solution, which is always non-negative (bounded
-             below by zero given the zero-inlet condition and heating-only wall BC) -- hence neither
-             is plotted at those smaller-$z^*$ positions here.}
+             (solid, numerical). The dashed curve is the analytical fully-developed
+             profile~\eqref{eq:analytical_temperature}, overlaid only at the largest scalar
+             location ($z^*=49.9$). The numerical curve has the expected developed radial shape,
+             but retains a visible finite-time offset because the thermal field has not reached
+             the stated residual tolerance. The dashed curve is a \emph{fully-developed asymptote}
+             (Section~\ref{sec:fd-validity}):
+             only meant to be reached for increasing $z^*$, not a valid prediction at every $z^*$
+             --- evaluated at small $z^*$ (e.g.\ $z^*=4.9$) it would extrapolate to strongly
+             negative $\theta$ near the centreline (the $4z^*$ term not yet compensating for the
+             formula's negative radial offset), unlike the numerical solution, which is always
+             non-negative (bounded below by zero given the zero-inlet condition and heating-only
+             wall BC) --- hence it is not plotted at those smaller-$z^*$ positions.}
     \label{fig:T_profiles}
 \end{figure}
 
@@ -791,7 +894,12 @@ convergence claim.
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.85\textwidth]{../Plots_matlab/w_comparison.png}
-    \caption{Velocity profile at $z^* = 50$ (fully developed): numerical vs.\ analytical Hagen--Poiseuille solution.}
+    \caption{Velocity profile at $z^* = 50$ (fully developed): numerical vs.\ analytical
+             Hagen--Poiseuille solution. The absolute-error minimum near $r^*\approx0.43$
+             is the zero crossing of the signed discretization error: conservation fixes the
+             same area-mean velocity for both profiles, so a small negative core error is
+             balanced by a small positive near-wall error. The rise toward the wall is the
+             expected local boundary/curvature truncation error, not a physical velocity minimum.}
     \label{fig:w_comparison}
 \end{figure}
 
@@ -866,5 +974,34 @@ The complete source code is provided below for the key solver functions.
 \subsection{Convergence Monitoring}
 \lstinputlisting[caption={compute\_residuals.m --- Residual computation}, label={lst:residuals}]{../src_matlab/compute_residuals.m}
 \lstinputlisting[caption={check\_convergence.m --- Convergence check}, label={lst:convergence}]{../src_matlab/check_convergence.m}
+
+\newpage
+
+% ============================================================================
+% REFERENCES
+% ============================================================================
+\begin{thebibliography}{9}
+
+\bibitem{ShahLondon1978}
+R.~K. Shah and A.~L. London,
+\emph{Laminar Flow Forced Convection in Ducts},
+Supplement~1 to \emph{Advances in Heat Transfer}, Academic Press, New York, 1978.
+(Circular duct, H1 boundary condition: $\text{Nu} = 48/11$.)
+
+\bibitem{Incropera}
+F.~P. Incropera and D.~P. DeWitt,
+\emph{Fundamentals of Heat and Mass Transfer},
+Wiley, New York.
+(Internal flow chapter: fully developed laminar flow in a circular tube with uniform surface
+heat flux, $\text{Nu}_D = 48/11 \approx 4.36$.)
+
+\bibitem{KaysCrawford}
+W.~M. Kays, M.~E. Crawford, and B.~Weigand,
+\emph{Convective Heat and Mass Transfer},
+McGraw-Hill, New York.
+(Fully developed laminar circular-tube flow, constant heat rate per unit length:
+$\text{Nu} = 48/11$.)
+
+\end{thebibliography}
 
 \end{document}

@@ -7,8 +7,8 @@ Projection method steps (non-dimensional, ρ*=1):
               u^{n+1}_{i+½,j} = u*_{i+½,j} − dt·(p'_{i+1,j} − p'_{i,j})/dr
               w^{n+1}_{i,j+½} = w*_{i,j+½} − dt·(p'_{i,j} − p'_{i,j-1})/dz
               (note: p' is at cell centres i,j; w face spans cells j-1..j)
-  Step 4: Update pressure
-              p^{n+1}_{i,j} = p^n_{i,j} + ζ·p'_{i,j}
+  Step 4: Store a relaxed estimate of the non-incremental projection pressure
+              p^{n+1}_{i,j} = (1-ζ)p^n_{i,j} + ζ·p'_{i,j}
 
 Poisson equation in cylindrical coordinates (FVM, cell (i,j)):
   [r_{i+½}(p'_{i+1,j}−p'_{i,j}) − r_{i-½}(p'_{i,j}−p'_{i-1,j})] / (r_c[i]·dr²)
@@ -117,13 +117,14 @@ def build_poisson_matrix(r_c, r_f, dr, dz, n_r, n_z):
 # Solve the Poisson equation
 # ---------------------------------------------------------------------------
 
-def solve_poisson(A, u_star, w_star, r_c, r_f, dr, dz, dt, n_r, n_z):
+def solve_poisson(A_or_solve, u_star, w_star, r_c, r_f, dr, dz, dt, n_r, n_z):
     """
     Solve  A · p'_flat = b  for pressure correction p'.
 
     Parameters
     ----------
-    A       : scipy sparse CSR  (n_r*n_z, n_r*n_z)
+    A_or_solve : sparse matrix or callable
+        Poisson matrix, or a pre-factorized direct-solve callable accepting b.
     u_star  : ndarray (n_r+1, n_z)  predicted radial velocity
     w_star  : ndarray (n_r, n_z+1)  predicted axial velocity
     r_c, r_f: arrays
@@ -154,7 +155,10 @@ def solve_poisson(A, u_star, w_star, r_c, r_f, dr, dz, dt, n_r, n_z):
     b_flat = b.ravel()
 
     # Direct solve
-    p_prime_flat = spla.spsolve(A, b_flat)
+    if callable(A_or_solve):
+        p_prime_flat = A_or_solve(b_flat)
+    else:
+        p_prime_flat = spla.spsolve(A_or_solve, b_flat)
     p_prime = p_prime_flat.reshape(n_r, n_z)
 
     return p_prime
