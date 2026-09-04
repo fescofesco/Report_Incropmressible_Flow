@@ -204,7 +204,7 @@ def plot_temperature_profile(theta, r_grid, z_positions, z_grid, theta_analytica
     if theta_analytical is not None:
         theta_analytical_values = theta_analytical(r_grid, z_fd)
         ax.plot(r_grid, theta_analytical_values, 'k--', linewidth=2,
-                label=f'Approved assignment, fully developed (z/D={z_fd:.1f})')
+                label=f'z/D = {z_fd:.1f}')
 
     ax.set_xlabel('r/D')
     ax.set_ylabel('(T-T_in)·ρ·W_in·c_v/q_w')

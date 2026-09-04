@@ -81,7 +81,7 @@ The computational domain is shown schematically in Figure~\ref{fig:geometry}.
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.95\textwidth]{../Plots_python/geometry_diagram.png}
+    \includegraphics[width=0.95\textwidth]{../Heun/Plots_python/geometry_diagram.png}
     \caption{Schematic of the cylindrical pipe flow with constant wall heat flux. Flow enters with uniform velocity $W_{\text{in}}$ and temperature $T_{\text{in}}$, and develops into a parabolic profile along the pipe length.}
     \label{fig:geometry}
 \end{figure}
@@ -285,7 +285,7 @@ Grid parameters:
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.95\textwidth]{../Plots_python/grid_structure_diagram.png}
+    \includegraphics[width=0.95\textwidth]{../Heun/Plots_python/grid_structure_diagram.png}
     \caption{Staggered grid structure showing storage locations of variables. Scalars ($p^*$, $\theta$) are stored at cell centers (blue circles), axial velocity $w^*$ at vertical faces (green squares), and radial velocity $u^*$ at horizontal faces (red triangles). The highlighted control volume $CV_{i,j}$ shows the indexing convention.}
     \label{fig:grid_structure}
 \end{figure}
@@ -396,7 +396,8 @@ We integrate over a control volume centered at the axial velocity location $(i, 
 
 \subsection{Temporal Discretization}
 
-A second-order explicit time integration scheme is employed (e.g., second-order Adams-Bashforth or Runge-Kutta RK2).
+A second-order explicit Adams--Bashforth scheme is employed. Forward Euler is
+used for the first step, after which the previous RHS is retained.
 
 For a generic transport equation:
 \begin{equation}
@@ -413,7 +414,9 @@ For a generic transport equation:
 A segregated solution approach based on the \textbf{projection method} with pressure correction is used:
 
 \begin{enumerate}
-    \item \textbf{Predictor step}: Solve momentum equations without pressure gradient to obtain intermediate velocities $u^{**}, w^{**}$
+    \item \textbf{Predictor step}: Apply AB2 to the convective and diffusive
+    momentum RHS and include the known gradient $-\nabla p^n$ to obtain
+    intermediate velocities $u^{**}, w^{**}$.
 
     \item \textbf{Pressure correction}: Solve the Poisson equation for pressure correction $p'$:
     \begin{equation}

@@ -181,7 +181,8 @@ All plot functions take pre-computed data and return matplotlib axes. No calcula
 ```
 Report_Incropmressible_Flow/
 ├── claude.md                    # This file
-├── src_python/
+├── Heun/                       # Projected Heun/RK2 implementation
+│   ├── src_python/
 │   ├── __init__.py
 │   ├── constants.py            # Physical constants, Re, Pr
 │   ├── grid.py                 # Grid generation
@@ -195,8 +196,14 @@ Report_Incropmressible_Flow/
 │   ├── analytical.py          # Analytical solutions
 │   ├── plotting.py            # All plot functions
 │   └── main.py                # Main simulation loop
-├── src_matlab/                # MATLAB port (later)
-├── Plots_python/              # Output plots
+│   ├── src_matlab/
+│   ├── Plots_python/
+│   └── Plots_matlab/
+├── AdamsBashfort2/            # AB2 incremental pressure-correction variant
+│   ├── src_python/
+│   ├── src_matlab/
+│   ├── Plots_python/
+│   └── Plots_matlab/
 └── Report/                    # LaTeX report files
 ```
 

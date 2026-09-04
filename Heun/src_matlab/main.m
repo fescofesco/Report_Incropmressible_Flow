@@ -152,7 +152,7 @@ end
 z_Tfd = z_c(j_Tfd);
 theta_an = analytical_temperature(r_c, z_Tfd, Re, Pr);
 plot(r_c, theta_an, 'k--', 'LineWidth', 1.5, ...
-    'DisplayName', sprintf('Approved assignment, fully developed (z*=%.1f)', z_Tfd));
+    'DisplayName', sprintf('z*=%.1f', z_Tfd));
 xlabel('r/D'); ylabel('\theta');
 title('Temperature profiles at selected z-positions');
 legend('Location', 'best'); grid on;

@@ -25,8 +25,8 @@ Both are of the form `θ(r*, z*) = 4 z* + Re·Pr · B(s)`, differing only in the
 | **Assignment-literal** (`Assignemnt/Assignment_WS25.pdf`, p. 2) | `s² − ¼s⁴ − ¾` | `2·Re·Pr` | `−11/24` | `(11/24)·Re·Pr` | **`24/11 ≈ 2.1818`** |
 
 The corrected bracket is the one implemented in
-`src_python/analytical.py::calculate_analytical_temperature`,
-`src_matlab/analytical_temperature.m`, and Eq. (analytical_temperature) of the report. The
+`Heun/src_python/analytical.py::calculate_analytical_temperature`,
+`Heun/src_matlab/analytical_temperature.m`, and Eq. (analytical_temperature) of the report. The
 assignment-literal bracket is kept for comparison in
 `calculate_analytical_temperature_pdf_original` / `analytical_temperature_pdf_original.m`.
 

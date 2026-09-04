@@ -18,13 +18,16 @@ Report_Incropmressible_Flow/
 ├── claude.md                    # IMPORTANT: Variable definitions and conventions
 ├── environment.yml              # Conda environment specification
 ├── requirements.txt             # Python dependencies
-├── src_python/                  # Python implementation
-│   ├── __init__.py
-│   ├── constants.py            # Physical constants, Re, Pr
-│   ├── analytical.py           # Analytical solution functions
-│   └── plotting.py             # Plot functions (return axes)
-├── src_matlab/                  # MATLAB port (future)
-├── Plots_python/                # Output plots directory
+├── Heun/                        # Projected Heun/RK2 implementation and plots
+│   ├── src_python/
+│   ├── src_matlab/
+│   ├── Plots_python/
+│   └── Plots_matlab/
+├── AdamsBashfort2/              # AB2 incremental pressure-correction variant
+│   ├── src_python/
+│   ├── src_matlab/
+│   ├── Plots_python/
+│   └── Plots_matlab/
 └── Report/                      # LaTeX report files
 ```
 
