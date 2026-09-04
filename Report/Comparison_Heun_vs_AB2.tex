@@ -44,6 +44,46 @@ For both methods, a projection solves
  \bm{u}^{\mathrm{new}}=\bm{u}^{*}-\Delta t\nabla\phi.
 \end{equation}
 
+\section{Runge--Kutta, RK2, and Heun terminology}
+
+\textbf{Runge--Kutta methods} are a family of time-integration methods for
+ordinary differential equations
+\begin{equation}
+ \frac{d\phi}{dt}=F(t,\phi).
+\end{equation}
+They advance the solution by evaluating the right-hand side $F$ at one or
+more intermediate points, called \emph{stages}, inside the current time step.
+These stage values are combined to approximate the time integral of $F$.
+Unlike Adams--Bashforth methods, a Runge--Kutta method normally does not need
+RHS values stored from earlier complete time steps.
+
+\textbf{RK2} means a Runge--Kutta method with second-order temporal accuracy.
+It is a family rather than one unique formula. Explicit midpoint, Ralston's
+method, and Heun's method are all RK2 schemes. They differ in where the second
+stage is evaluated and in the weights used to combine the stages.
+
+\textbf{Heun's method} is the explicit trapezoidal member of the RK2 family.
+It first uses an Euler prediction over the complete time step,
+\begin{align}
+ k_1 &= F(t^n,\phi^n),\\
+ \widetilde{\phi} &= \phi^n+\Delta t\,k_1,
+\end{align}
+then evaluates the slope at the predicted endpoint and averages both slopes:
+\begin{align}
+ k_2 &= F(t^{n+1},\widetilde{\phi}),\\
+ \phi^{n+1} &= \phi^n+\frac{\Delta t}{2}(k_1+k_2).
+\end{align}
+The average is analogous to the trapezoidal rule, which explains the name
+\emph{explicit trapezoidal method}. Thus ``Heun'', ``explicit trapezoidal
+RK2'', and the particular two-stage equations above refer to the same method;
+``RK2'' alone is less specific.
+
+For incompressible flow, each velocity used to evaluate a stage should also
+satisfy the continuity constraint. The implementation therefore adds a
+pressure projection after Heun's Euler predictor and another after the final
+weighted predictor. These projections are not part of generic Heun theory;
+they are how the time integrator is coupled to incompressibility.
+
 \section{Projected Heun/RK2 method}
 
 Let $F(\bm{u})$ contain the discrete convective and viscous momentum terms,

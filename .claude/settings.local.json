@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(conda create:*)",
+      "Bash(C:\\\\ProgramData\\\\anaconda3\\\\Scripts\\\\conda.exe create:*)",
+      "Bash(cmd /c:*)",
+      "Bash(copy:*)",
+      "Bash(C:/ProgramData/anaconda3/envs/pipe_flow/python.exe src_python/main.py)",
+      "Bash(\"C:/ProgramData/anaconda3/Scripts/conda.exe\" env list)",
+      "Bash(conda env list:*)",
+      "Bash(PYTHONIOENCODING=utf-8 \"C:/Users/Admin/.conda/envs/pipe_flow/python.exe\":*)",
+      "Bash(matlab -batch:*)",
+      "Bash(git commit:*)"
+    ]
+  }
+}
