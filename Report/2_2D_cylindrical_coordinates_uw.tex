@@ -7,6 +7,16 @@
 \section{2D Incompressible Flow in Cylindrical Coordinates $(r,z)$ --- Velocities $(u,w)$}
 \label{sec:cyl_uw}
 
+\emph{Note on notation:} this appendix derives the FVM discretisation, projection method,
+and ghost-cell treatment in general form, illustrating $u$ and $w$ as cell-centred quantities
+near each boundary for schematic clarity. The staggered grid actually implemented (Table~2 in
+the main text) instead stores $u$ exactly \emph{at} the axis and wall faces and $w$ exactly
+\emph{at} the inlet and outlet faces, so those boundary-normal components are set directly
+(Dirichlet) rather than via a mirrored ghost cell; only the wall-tangential component and the
+scalars ($p$, $\theta$) use the mirrored ghost-cell form shown here. The relaxation factor
+$\zeta$ below is the same quantity as $\alpha_p$ in Section~\ref{sec:pressure-correction},
+where this submission uses $\alpha_p = 0.7$.
+
 \subsection{Governing Equations (Strong Form)}
 
 For axisymmetric flow ($\partial/\partial\phi = 0$, $v_\phi = 0$) in cylindrical coordinates $(r,z)$:
@@ -252,8 +262,9 @@ where the diffusion operators are:
     D_z^w = \frac{w^n_{i,j+\frac{3}{2}}-2w^n_{i,j+\frac{1}{2}}+w^n_{i,j-\frac{1}{2}}}{\Delta z^2}
     \\[4pt]
     D_r^u &= \frac{r_{i+1}(u^n_{i+\frac{3}{2},j}-u^n_{i+\frac{1}{2},j})-r_i(u^n_{i+\frac{1}{2},j}-u^n_{i-\frac{1}{2},j})}{r_{i+\frac{1}{2}}\Delta r^2}
-    - \frac{u^n_{i+\frac{1}{2},j}}{r_{i+\frac{1}{2}}^2},\quad
-    D_z^u = \frac{u^n_{i+\frac{1}{2},j+1}-2u^n_{i+\frac{1}{2},j}+u^n_{i+\frac{1}{2},j-1}}{\Delta z^2}
+    - \frac{u^n_{i+\frac{1}{2},j}}{r_{i+\frac{1}{2}}^2}
+    \\[4pt]
+    D_z^u &= \frac{u^n_{i+\frac{1}{2},j+1}-2u^n_{i+\frac{1}{2},j}+u^n_{i+\frac{1}{2},j-1}}{\Delta z^2}
 \end{align}
 
 \subsubsection{Step 2 --- Poisson Equation for Pressure Correction $p'$}
@@ -269,6 +280,7 @@ Enforcing the discrete continuity Eq.~\eqref{eq:cyl_uw_disc_cont} after correcti
 
 Discretised form at cell $(i,j)$:
 \begin{equation}
+\resizebox{\textwidth}{!}{$\displaystyle
 \boxed{
 \frac{r_{i+\frac{1}{2}}(p'_{i+1,j}-p'_{i,j}) - r_{i-\frac{1}{2}}(p'_{i,j}-p'_{i-1,j})}{r_i\,\Delta r^2}
 +\frac{p'_{i,j+1}-2p'_{i,j}+p'_{i,j-1}}{\Delta z^2}
@@ -276,7 +288,7 @@ Discretised form at cell $(i,j)$:
   \frac{r_{i+\frac{1}{2}}\,u^*_{i+\frac{1}{2},j}-r_{i-\frac{1}{2}}\,u^*_{i-\frac{1}{2},j}}{r_i\,\Delta r}
   +\frac{w^*_{i,j+\frac{1}{2}}-w^*_{i,j-\frac{1}{2}}}{\Delta z}
 \right)
-}
+}$}
 \label{eq:cyl_uw_disc_poisson}
 \end{equation}
 
@@ -302,7 +314,7 @@ Discretised form at cell $(i,j)$:
 
 \begin{equation}
 \boxed{
-    p^{n+1}_{i,j} = p^{n}_{i,j} + \zeta\,p'_{i,j}, \qquad \zeta \approx 0.5
+    p^{n+1}_{i,j} = p^{n}_{i,j} + \zeta\,p'_{i,j}, \qquad \zeta = \alpha_p = 0.7 \text{ (this submission)}
 }
 \label{eq:cyl_uw_pupdate}
 \end{equation}
@@ -396,7 +408,7 @@ Centreline ($r=0$) & $u=0$               & $u$ & $u_g = -u_1$ \\
 Wall ($r=R$)       & $u=0$, $w=0$        & $u$ & $u_g = -u_1$ \\
                    &                     & $w$ & $w_g = -w_1$ \\
                    & $\partial p/\partial r=0$ & $p$ & $p_g = p_1$ \\
-                   & $-\lambda\,\partial T/\partial r=q_w$ & $T$ & $T_g = T_1 + \frac{q_w\,\Delta r}{\lambda}$ \\
+                   & $\lambda\,\partial T/\partial r=q_w$ & $T$ & $T_g = T_1 + \frac{q_w\,\Delta r}{\lambda}$ \\
 \midrule
 Inlet ($z=0$)      & $u=0$, $w=W_\text{in}$ & $w$ & $w_g = 2W_\text{in}-w_1$ \\
                    &                        & $u$ & $u_g = -u_1$ \\

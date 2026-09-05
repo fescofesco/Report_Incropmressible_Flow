@@ -409,6 +409,7 @@ The time step $\Delta t = 0.002$ satisfies the stability constraints:
 \end{itemize}
 
 \subsection{Pressure Correction Method (Projection)}
+\label{sec:pressure-correction}
 
 A segregated approach is used. Each time step consists of:
 
@@ -513,6 +514,7 @@ Table~\ref{tab:modules} lists all functions and their roles.
 \texttt{apply\_bc\_w.m}       & Enforces axial velocity BCs (inlet Dirichlet, outlet zero-gradient) \\
 \texttt{apply\_bc\_u.m}       & Enforces radial velocity BCs (axis and wall: $u=0$) \\
 \texttt{apply\_bc\_T.m}       & Enforces temperature BCs (inlet Dirichlet, outlet zero-gradient) \\
+\texttt{apply\_all\_bc.m}     & Dispatches to \texttt{apply\_bc\_u/w/T.m} in one call (used for the initial-condition BCs before the time loop) \\
 \texttt{upwind2\_face.m}      & 2nd-order upwind (linear-extrapolation) face-value helper, shared by all three RHS functions below \\
 \texttt{compute\_rhs\_w.m}    & Explicit RHS of axial momentum (no pressure): 2nd-order upwind convection, central diffusion \\
 \texttt{compute\_rhs\_u.m}    & Explicit RHS of radial momentum (no pressure): 2nd-order upwind convection, central diffusion \\
@@ -563,7 +565,7 @@ Figure~\ref{fig:flowchart} shows the algorithm implemented in \texttt{main.m}.
 \node (poisson_mat) [process, below=of init] {Assemble Poisson matrix $\mathbf{A}$ (once)};
 \node (bc0) [process, below=of poisson_mat] {Apply boundary conditions};
 
-\node (pred) [process, below=0.8cm of bc0] {AB2 predictor $w^*$, $u^*$ including $\nabla p^n$};
+\node (pred) [process, below=1.5cm of bc0] {AB2 predictor $w^*$, $u^*$ including $\nabla p^n$};
 \node (solve_p) [process, below=of pred] {Solve Poisson: $\mathbf{A}\,\mathbf{p}' = \mathbf{b}$};
 \node (correct) [process, below=of solve_p] {Correct: $u^{n+1}$, $w^{n+1}$, $p^{n+1}$};
 \node (temp) [process, below=of correct] {Advance temperature $\theta^{n+1}$};
@@ -574,7 +576,9 @@ Figure~\ref{fig:flowchart} shows the algorithm implemented in \texttt{main.m}.
 \node (stop) [startstop, below=of output] {End};
 
 % Time loop box
-\node[loop, fit=(pred)(solve_p)(correct)(temp)(bc1)(conv), label={[font=\small\bfseries]above:Time loop ($n = 1, \ldots, n_{\max}$)}] (timeloop) {};
+\node[loop, fit=(pred)(solve_p)(correct)(temp)(bc1)(conv)] (timeloop) {};
+\node[font=\small\bfseries, anchor=south west, xshift=0.05cm, yshift=0.1cm]
+    at (timeloop.north west) {Time loop ($n = 1, \ldots, n_{\max}$)};
 
 % Arrows
 \draw[arrow] (start) -- (grid);
@@ -588,7 +592,7 @@ Figure~\ref{fig:flowchart} shows the algorithm implemented in \texttt{main.m}.
 \draw[arrow] (temp) -- (bc1);
 \draw[arrow] (bc1) -- (conv);
 \draw[arrow] (conv) -- node[right, font=\small] {Yes} (output);
-\draw[arrow] (conv.east) -- ++(2,0) node[above, font=\small] {No} |- (pred.east);
+\draw[arrow] (conv.east) -- ++(2.6,0) node[pos=0.5, above, font=\small] {No} |- (pred.east);
 \draw[arrow] (output) -- (stop);
 
 \end{tikzpicture}
@@ -636,16 +640,10 @@ For constant wall heat flux in fully developed thermal flow:
     \theta = 4z^* + \Rey\Pran\left[\frac{1}{2}(2r^*)^2 - \frac{1}{8}(2r^*)^4 - \frac{7}{48}\right]
     \label{eq:analytical_temperature}
 \end{equation}
-\emph{Note:} an earlier transcription of this profile carried the radial-term coefficients
-doubled ($(2r^*)^2 - \frac14(2r^*)^4 - \frac34$), i.e.\ missing the factor $\tfrac12$ on
-$\Rey\Pran$ in the radial terms. Direct integration of the non-dimensional energy equation
-(Section~\ref{sec:nusselt-check}), the requirement that the wall condition
-$\lambda\,\partial T/\partial r|_{\text{wall}}=q_w$ be satisfied, and an empirical check against
-the finite-time CFD solution in a downstream region that is already close to thermally developed
-($\text{Nu}=\Rey\Pran/(\theta_{\text{wall}}-\theta_{\text{bulk}}) \approx 4.6$ at $z^*=29.9$,
-within $\sim$5\% of the classical $\text{Nu}=48/11\approx4.36$, versus $\approx$2.18 for the
-doubled coefficients) all give the coefficients used above. The constant $-\tfrac{7}{48}$
-follows from the exact global energy balance (it is not simply half of $-\tfrac34$). See
+This form follows from direct integration of the non-dimensional energy
+equation~\eqref{eq:energy_nd} in the fully developed regime (Section~\ref{sec:nusselt-check}),
+subject to the wall condition $\lambda\,\partial T/\partial r|_{\text{wall}}=q_w$ and the global
+energy balance $\theta_{\text{bulk}}(z^*) = 4z^*$; see
 \texttt{Report/nusselt\_number\_analysis.md} for the full derivation and literature sources.
 
 The thermal entry length is $L_t \approx 0.05\,\Rey\,\Pran\,D = 25D$.
@@ -812,6 +810,20 @@ below $10^{-6}$:
     \label{fig:convergence}
 \end{figure}
 
+The continuity residual (blue) is flat from the very first step rather than decaying over time:
+the incremental pressure correction re-solves the Poisson equation to machine precision every
+single step, so $\nabla\cdot\mathbf{u}$ is driven to its numerical floor ($\sim10^{-14}$--$10^{-15}$)
+at each iteration by construction, independent of whether the flow itself has reached steady
+state. $R_{\text{vel}}$ (red), in contrast, measures how much the velocity field is still
+changing between steps: it decays exponentially, by roughly one decade every $1000$ steps
+($\Delta t^*=2$), until it reaches the round-off floor at step $\approx15{,}000$
+($t^*\approx30$) -- only then does it flatten into a noisy plateau rather than continuing
+smoothly to zero. That plateau is round-off noise: $R_{\text{vel}}$ divides an already
+near-machine-precision difference
+$u^{n+1}-u^n$ by $\Delta t=0.002$, amplifying floating-point noise by a factor $1/\Delta t=500$,
+which is why it appears jagged at $\mathcal{O}(10^{-13})$ while $R_{\text{cont}}$ (not divided by
+$\Delta t$) stays visually flat near $\mathcal{O}(10^{-14})$--$\mathcal{O}(10^{-15})$.
+
 In the MATLAB run, $R_{\text{cont}}=6.43\times10^{-15}$ and
 $R_{\text{vel}}=2.78\times10^{-14}$ at $t^*=60$: the velocity field is fully converged. $R_\theta$,
 however, does \emph{not} reach $10^{-6}$ within the simulated time span (final value
@@ -942,7 +954,7 @@ The numerical results reproduce the expected physics:
 \section{MATLAB Source Code}
 \label{app:code}
 
-The complete source code is provided below for the key solver functions.
+The key solver functions are listed below in full; \texttt{constants.m}, \texttt{initialise\_fields.m}, \texttt{apply\_all\_bc.m}, \texttt{predictor\_w/u.m}, \texttt{advance\_temperature.m}, \texttt{compute\_divergence.m}, and \texttt{analytical\_velocity/temperature.m} are omitted here for brevity (see Table~\ref{tab:modules} and the repository for the complete set).
 
 \subsection{Main Simulation Script}
 \lstinputlisting[caption={main.m --- Main simulation loop and plotting}, label={lst:main}]{../AdamsBashfort2/src_matlab/main.m}

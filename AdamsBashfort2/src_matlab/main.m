@@ -115,9 +115,26 @@ saveas(gcf, fullfile(plots_dir, 'w_contour.png'));
 fprintf('  Saved w_contour.png\n');
 
 %% Plot 2: radial velocity contour
+% u is ~0 over most of the domain (flow is fully developed for z* > ~5,
+% i.e. 90% of the pipe length) except for a strong, spatially localised
+% entrance-corner value near (r=0.5, z=0). A linear color scale spanning
+% the raw min/max is dominated by that single feature and renders the
+% entire developed region as one flat color. Instead use a diverging
+% colormap centred at zero with a robust (98th-percentile) symmetric
+% limit, so the near-zero bulk keeps visible contrast and the entrance
+% feature simply saturates the color scale rather than washing it out.
 figure('Visible', 'off');
-contourf(z_c, r_c, u_cc, 20, 'LineStyle', 'none');
-colorbar; colormap(gca, 'cool'); xlabel('z/D'); ylabel('r/D');
+u_abs_sorted = sort(abs(u_cc(:)));
+u_lim = u_abs_sorted(max(1, round(0.98 * numel(u_abs_sorted))));
+if u_lim <= 0
+    u_lim = max(abs(u_cc(:)));
+end
+if u_lim <= 0
+    u_lim = 1;
+end
+contourf(z_c, r_c, u_cc, linspace(-u_lim, u_lim, 21), 'LineStyle', 'none');
+clim([-u_lim, u_lim]);
+colorbar; colormap(gca, diverging_bwr(256)); xlabel('z/D'); ylabel('r/D');
 title('Radial velocity u/W_{in}');
 saveas(gcf, fullfile(plots_dir, 'u_contour.png'));
 fprintf('  Saved u_contour.png\n');
@@ -198,4 +215,9 @@ saveas(gcf, fullfile(plots_dir, 'w_comparison.png'));
 fprintf('  Saved w_comparison.png\n');
 
 fprintf('\nAll plots saved to %s\n', plots_dir);
+
+%% Save final fields for offline inspection / diagnostics
+save(fullfile(plots_dir, '..', 'src_matlab', 'last_run.mat'), ...
+     'u', 'w', 'p', 'T', 'u_cc', 'w_cc', 'r_c', 'z_c', 'hist_cont', 'hist_vel', 'hist_temp');
+
 close all;
