@@ -73,3 +73,4 @@ nul
 *.synctex.gz
 Report/*.pdf
 !Report/final_report.pdf
+!Report/main.pdf
