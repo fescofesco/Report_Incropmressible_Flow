@@ -58,6 +58,10 @@ Plots_python/*.jpg
 # MATLAB
 *.asv
 *.m~
+*.mat
+
+# Windows accidental redirect file
+nul
 
 # LaTeX
 *.aux
