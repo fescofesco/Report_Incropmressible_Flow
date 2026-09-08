@@ -954,7 +954,13 @@ The numerical results reproduce the expected physics:
 \section{MATLAB Source Code}
 \label{app:code}
 
-The key solver functions are listed below in full; \texttt{constants.m}, \texttt{initialise\_fields.m}, \texttt{apply\_all\_bc.m}, \texttt{predictor\_w/u.m}, \texttt{advance\_temperature.m}, \texttt{compute\_divergence.m}, and \texttt{analytical\_velocity/temperature.m} are omitted here for brevity (see Table~\ref{tab:modules} and the repository for the complete set).
+The complete MATLAB source code for the AB2 solver is listed below. Each function
+corresponds to a module in Table~\ref{tab:modules}; the same code base (differing only
+in the time-integration step) is used for the Heun reference solver.
+
+\subsection{Configuration and Initialisation}
+\lstinputlisting[caption={constants.m --- Physical parameters, grid size, and solver tolerances}, label={lst:constants}]{../AdamsBashfort2/src_matlab/constants.m}
+\lstinputlisting[caption={initialise\_fields.m --- Allocation and initial conditions for all fields}, label={lst:initfields}]{../AdamsBashfort2/src_matlab/initialise_fields.m}
 
 \subsection{Main Simulation Script}
 \lstinputlisting[caption={main.m --- Main simulation loop and plotting}, label={lst:main}]{../AdamsBashfort2/src_matlab/main.m}
@@ -963,11 +969,14 @@ The key solver functions are listed below in full; \texttt{constants.m}, \texttt
 \lstinputlisting[caption={make\_grid.m --- Staggered grid generation}, label={lst:grid}]{../AdamsBashfort2/src_matlab/make_grid.m}
 
 \subsection{Boundary Conditions}
+\lstinputlisting[caption={apply\_all\_bc.m --- Driver applying all field boundary conditions}, label={lst:bcall}]{../AdamsBashfort2/src_matlab/apply_all_bc.m}
 \lstinputlisting[caption={apply\_bc\_w.m --- Axial velocity boundary conditions}, label={lst:bcw}]{../AdamsBashfort2/src_matlab/apply_bc_w.m}
 \lstinputlisting[caption={apply\_bc\_u.m --- Radial velocity boundary conditions}, label={lst:bcu}]{../AdamsBashfort2/src_matlab/apply_bc_u.m}
 \lstinputlisting[caption={apply\_bc\_T.m --- Temperature boundary conditions}, label={lst:bcT}]{../AdamsBashfort2/src_matlab/apply_bc_T.m}
 
 \subsection{Momentum Solver}
+\lstinputlisting[caption={predictor\_w.m --- Axial velocity predictor}, label={lst:predw}]{../AdamsBashfort2/src_matlab/predictor_w.m}
+\lstinputlisting[caption={predictor\_u.m --- Radial velocity predictor}, label={lst:predu}]{../AdamsBashfort2/src_matlab/predictor_u.m}
 \lstinputlisting[caption={upwind2\_face.m --- 2nd-order upwind (linear-extrapolation) face-value helper}, label={lst:upwind2}]{../AdamsBashfort2/src_matlab/upwind2_face.m}
 \lstinputlisting[caption={compute\_rhs\_w.m --- Axial momentum RHS: 2nd-order upwind convection, central diffusion}, label={lst:rhsw}]{../AdamsBashfort2/src_matlab/compute_rhs_w.m}
 \lstinputlisting[caption={compute\_rhs\_u.m --- Radial momentum RHS: 2nd-order upwind convection, central diffusion}, label={lst:rhsu}]{../AdamsBashfort2/src_matlab/compute_rhs_u.m}
@@ -976,15 +985,24 @@ The key solver functions are listed below in full; \texttt{constants.m}, \texttt
 \subsection{Poisson Solver and Pressure Correction}
 \lstinputlisting[caption={build\_poisson\_matrix.m --- Sparse Poisson matrix assembly}, label={lst:buildA}]{../AdamsBashfort2/src_matlab/build_poisson_matrix.m}
 \lstinputlisting[caption={solve\_poisson.m --- Poisson solve using MATLAB backslash}, label={lst:solveP}]{../AdamsBashfort2/src_matlab/solve_poisson.m}
+\lstinputlisting[caption={compute\_divergence.m --- Discrete velocity divergence (Poisson RHS and continuity residual)}, label={lst:divergence}]{../AdamsBashfort2/src_matlab/compute_divergence.m}
 \lstinputlisting[caption={correct\_velocity.m --- Velocity correction step}, label={lst:correct}]{../AdamsBashfort2/src_matlab/correct_velocity.m}
 \lstinputlisting[caption={update\_pressure.m --- Additive pressure-correction update}, label={lst:updatep}]{../AdamsBashfort2/src_matlab/update_pressure.m}
 
 \subsection{Temperature Solver}
 \lstinputlisting[caption={compute\_rhs\_T.m --- Energy equation RHS: 2nd-order upwind convection, central diffusion}, label={lst:rhsT}]{../AdamsBashfort2/src_matlab/compute_rhs_T.m}
+\lstinputlisting[caption={advance\_temperature.m --- Temperature time advance}, label={lst:advT}]{../AdamsBashfort2/src_matlab/advance_temperature.m}
 
 \subsection{Convergence Monitoring}
 \lstinputlisting[caption={compute\_residuals.m --- Residual computation}, label={lst:residuals}]{../AdamsBashfort2/src_matlab/compute_residuals.m}
 \lstinputlisting[caption={check\_convergence.m --- Convergence check}, label={lst:convergence}]{../AdamsBashfort2/src_matlab/check_convergence.m}
+
+\subsection{Analytical Reference Solutions}
+\lstinputlisting[caption={analytical\_velocity.m --- Hagen--Poiseuille axial velocity profile}, label={lst:anavel}]{../AdamsBashfort2/src_matlab/analytical_velocity.m}
+\lstinputlisting[caption={analytical\_temperature.m --- Fully developed temperature profile ($\text{Nu}=48/11$)}, label={lst:anatemp}]{../AdamsBashfort2/src_matlab/analytical_temperature.m}
+
+\subsection{Plotting Helper}
+\lstinputlisting[caption={diverging\_bwr.m --- Blue--white--red diverging colormap for contour plots}, label={lst:bwr}]{../AdamsBashfort2/src_matlab/diverging_bwr.m}
 
 \newpage
 
