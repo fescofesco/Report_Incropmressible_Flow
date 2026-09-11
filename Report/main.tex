@@ -460,6 +460,37 @@ extrapolation term is dropped.
 
 Diffusive terms retain standard \textbf{second-order central differencing}.
 
+\subsubsection{Temperature equation and cell-by-cell development}
+
+The temperature variable $\theta_{i,j}$ is stored at the centre of every scalar control
+volume. At each time step, its value is advanced from the net transport and diffusion through
+the four faces of that control volume:
+\begin{equation}
+        \frac{\mathrm{d}\theta_{i,j}}{\mathrm{d}t}
+        = -\frac{1}{r_{c,i}\Delta r}
+            \left[(r u\theta)_e-(r u\theta)_w\right]
+            -\frac{(w\theta)_n-(w\theta)_s}{\Delta z}
+            +\frac{1}{\Rey\Pran}\left[
+            \frac{r_{i+\frac12}\theta_r|_e-r_{i-\frac12}\theta_r|_w}{r_{c,i}\Delta r}
+            +\frac{\theta_z|_n-\theta_z|_s}{\Delta z}\right].
+        \label{eq:temperature_cell_balance}
+\end{equation}
+The convective face temperatures are reconstructed with the LUD formula above, while the
+diffusive face gradients use central differences. The wall face receives the prescribed heat
+flux through the ghost value
+$\theta_g=\theta_{i,j}+\Delta r\,\Rey\Pran$; the inlet face uses $\theta=0$ and the
+outlet uses a zero axial gradient. Thus every cell is updated from its local radial and axial
+neighbour values, together with the local face velocities. In the AB2 time integrator the
+resulting cellwise right-hand side is stored and updated as
+\begin{equation}
+        \theta_{i,j}^{n+1}=\theta_{i,j}^{n}+\Delta t
+        \left(\tfrac32 R_{\theta,i,j}^{n}-\tfrac12 R_{\theta,i,j}^{n-1}\right),
+\end{equation}
+with a forward-Euler startup step when the previous right-hand side is unavailable. Heat
+therefore first enters cells adjacent to the wall and then spreads radially and downstream;
+the centreline and downstream cells develop later because they receive heat through diffusion
+and axial advection rather than directly from the heated wall.
+
 \subsubsection{Axial Momentum (at w-face CV)}
 
 The w-CV at $(r_{c,i},\, z_{f,j})$ spans $[r_{f,i},\, r_{f,i+1}] \times [z_{c,j-1},\, z_{c,j}]$.
@@ -857,9 +888,9 @@ radial coefficients $(2r^*)^2-\tfrac14(2r^*)^4-\tfrac34$ yields
 $\theta_{\text{wall}}-\theta_{\text{bulk}} = \tfrac{11}{24}\,\Rey\Pran$ and hence
 $\text{Nu}=24/11\approx2.18$ --- exactly half of $48/11$, and inconsistent both with this
 classical result and with the assignment's own stated wall condition (that literal profile has
-wall gradient $2\,\Rey\Pran$, and its bulk temperature is not $4z^*$). The finite-time CFD
-solution gives $\text{Nu}\approx4.4\text{--}4.6$ over $z^*=20\text{--}40$, approaching $48/11$
-where the thermal field has had the most settling time. The full derivation, the literature
+wall gradient $2\,\Rey\Pran$, and its bulk temperature is not $4z^*$). The converged CFD
+solution at $t^*=139.728$ gives $\text{Nu}\approx4.4\text{--}4.6$ over $z^*=20\text{--}40$, approaching
+$48/11$ where the thermal field has had the most settling time. The full derivation, the literature
 sources, and the empirical table are collected in
 \texttt{Report/nusselt\_number\_analysis.md}.
 
@@ -926,28 +957,27 @@ $u^{n+1}-u^n$ by $\Delta t=0.002$, amplifying floating-point noise by a factor $
 which is why it appears jagged at $\mathcal{O}(10^{-13})$ while $R_{\text{cont}}$ (not divided by
 $\Delta t$) stays visually flat near $\mathcal{O}(10^{-14})$--$\mathcal{O}(10^{-15})$.
 
-In the MATLAB run, $R_{\text{cont}}=6.43\times10^{-15}$ and
-$R_{\text{vel}}=2.78\times10^{-14}$ at $t^*=60$: the velocity field is fully converged. $R_\theta$,
-however, does \emph{not} reach $10^{-6}$ within the simulated time span (final value
-$R_\theta=2.19$ at $t^*=60$, identical in the Python and MATLAB implementations) -- this reflects
-a genuinely slow physical timescale rather than a
-flaw in the scheme: thermal diffusion across the pipe radius has a non-dimensional timescale of
-order $\Rey\Pran R^{*2}\approx125$, comparable to or larger than the simulated $t^*=60$, so the
-temperature field is still slowly relaxing toward steady state (most visibly near the outlet,
-where the thermal front has had the least settling time -- see the Nusselt-number discussion in
-Section~\ref{sec:nusselt-check} / \texttt{Report/temperature\_formula\_review.md}). Extrapolating
-the logged residual decay trend, reaching $R_\theta<10^{-6}$ would require several hundred more
-non-dimensional time units (multiple additional hours of compute); this was not pursued for this
-submission, and the actually-achieved residual is reported here rather than an unsupported
-convergence claim.
+In the extended MATLAB run, $R_{\text{cont}}=6.46\times10^{-15}$ and
+$R_{\text{vel}}=2.78\times10^{-14}$ at the converged time $t^*=139.728$. The temperature residual
+decreases from approximately $101$ at the first step and reaches
+$R_\theta=9.99\times10^{-7}$ at step $69{,}864$, just below the target $10^{-6}$. This residual is
+the maximum local rate of change, not the error relative to the analytical temperature profile. Its
+earlier non-monotone decrease was therefore not a numerical failure: as the heated layer moved
+downstream and diffused inward, the cell containing the largest change moved as well. The dominant
+timescale is thermal diffusion across the radius, $\Rey\Pran R^{*2}\approx125$, which explains why
+the temperature required substantially longer to settle than the velocity. The final result is
+therefore a converged finite-volume solution at the stated residual tolerance, while the analytical
+fully-developed temperature profile remains a separate asymptotic reference for radial shape.
 
 \subsection{Velocity Field}
 
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.95\textwidth]{../AdamsBashfort2/Plots_matlab/w_contour.png}
-    \caption{Axial velocity contour $w/W_{\text{in}}$.
-             The flow transitions from a uniform inlet profile ($w=1$) to a parabolic profile ($w_{\max}=2$ at centreline).}
+    \caption{Axial velocity contour $w/W_{\text{in}}$ with all cell-centre velocity vectors.
+             The flow transitions from a uniform inlet profile ($w=1$) to a parabolic profile
+             ($w_{\max}=2$ at centreline); the arrows show the axial and radial components of
+             the velocity field at every plotted cell centre.}
     \label{fig:w_contour}
 \end{figure}
 
@@ -988,9 +1018,10 @@ convergence claim.
     \caption{Non-dimensional temperature profiles $\theta(r)$ at selected axial positions
              (solid, numerical). The dashed curve is the analytical fully-developed
              profile~\eqref{eq:analytical_temperature}, overlaid only at the largest scalar
-             location ($z^*=49.9$). The numerical curve has the expected developed radial shape,
-             but retains a visible finite-time offset because the thermal field has not reached
-             the stated residual tolerance. The dashed curve is a \emph{fully-developed asymptote}
+             location ($z^*=49.9$). The numerical curve has the expected developed radial shape;
+             any remaining difference from the dashed curve reflects comparison with a
+             fully-developed asymptotic radial profile and the finite axial location. The dashed
+             curve is a \emph{fully-developed asymptote}
              (Section~\ref{sec:fd-validity}):
              only meant to be reached for increasing $z^*$, not a valid prediction at every $z^*$
              --- evaluated at small $z^*$ (e.g.\ $z^*=4.9$) it would extrapolate to strongly
@@ -1037,9 +1068,7 @@ The numerical results reproduce the expected physics:
           Hagen--Poiseuille profiles agree to within $\mathcal{O}(10^{-4})$ (Fig.~\ref{fig:w_comparison}) -- the velocity field is essentially fully converged and validated.
     \item The temperature field shows the characteristic linear rise of the bulk temperature along the pipe axis ($\theta_{\text{bulk}}\approx4z^*$, confirmed to within $\sim$1\% at $z^*=29.9$; see
           Section~\ref{sec:nusselt-check}) and a radial profile that approaches the analytical fully-developed solution as $z^*$ increases (Fig.~\ref{fig:T_profiles}), as expected since that solution
-          is only valid asymptotically. Agreement is closest where the flow has had the most settling time; near the outlet ($z^*\to50$) a visible gap remains, consistent with both the limited
-          settling margin there (Section~\ref{sec:nusselt-check}) and the temperature field not yet being at true temporal steady state (see Convergence History above) -- this is reported honestly
-          rather than claimed as a close match at every $z^*$.
+          is only valid asymptotically. Agreement is closest where the flow has had the most settling time; at smaller $z^*$ the difference is primarily the thermal entrance-region shape, while the final field satisfies the temporal convergence criterion.
 \end{itemize}
 
 \newpage

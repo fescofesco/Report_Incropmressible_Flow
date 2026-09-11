@@ -15,7 +15,7 @@ function c = constants()
 
     % Time parameters
     c.dt = 0.002;       % Time step
-    c.n_steps = 30000;  % Max time steps
+    c.n_steps = 100000; % Max time steps
     c.output_interval = 1000;
 
     % Numerical parameters

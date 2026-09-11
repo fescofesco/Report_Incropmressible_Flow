@@ -109,8 +109,12 @@ end
 %% Plot 1: axial velocity contour
 figure('Visible', 'off');
 contourf(z_c, r_c, w_cc, 20, 'LineStyle', 'none');
+hold on;
+% Overlay all staggered-grid velocity vectors after mapping both components
+% to cell centres. The arrows show axial flow in z and radial flow in r.
+quiver(z_c, r_c, w_cc, u_cc, 0.08, 'k', 'LineWidth', 0.4);
 colorbar; xlabel('z/D'); ylabel('r/D');
-title('Axial velocity w/W_{in}');
+title('Axial velocity w/W_{in} and velocity vectors');
 saveas(gcf, fullfile(plots_dir, 'w_contour.png'));
 fprintf('  Saved w_contour.png\n');
 
@@ -174,7 +178,7 @@ end
 z_Tfd = z_c(j_Tfd);
 theta_an = analytical_temperature(r_c, z_Tfd, Re, Pr);
 plot(r_c, theta_an, 'k--', 'LineWidth', 1.5, ...
-    'DisplayName', sprintf('z*=%.1f', z_Tfd));
+    'DisplayName', sprintf('Analytical profile at z*=%.1f', z_Tfd));
 xlabel('r/D'); ylabel('\theta');
 title('Temperature profiles at selected z-positions');
 legend('Location', 'best'); grid on;
