@@ -15,7 +15,7 @@
 \usepackage{bm}
 \usepackage{pdfpages}
 \usepackage{tikz}
-\usetikzlibrary{shapes.geometric, arrows.meta, positioning, fit}
+\usetikzlibrary{shapes.geometric, arrows.meta, positioning, fit, calc}
 \usepackage{listings}
 \usepackage{xcolor}
 
@@ -309,10 +309,108 @@ Grid parameters: $n_r = 50$ cells radially, $n_z = 250$ cells axially, giving:
 \end{equation}
 
 \begin{figure}[H]
-    \centering
-    \includegraphics[width=0.95\textwidth]{../Heun/Plots_python/grid_structure_diagram.png}
-    \caption{Staggered grid structure. Scalars ($p$, $\theta$) at cell centres,
-             axial velocity $w$ at vertical faces, radial velocity $u$ at horizontal faces.}
+\centering
+\begin{tikzpicture}[scale=1.5, >=Latex]
+
+% ---------------------------------------------------------------
+% Front face (theta = theta_j): the (r,z) cross-section of one CV
+% ---------------------------------------------------------------
+\coordinate (A) at (0,0);       % r_i,     z_j
+\coordinate (B) at (2.6,0);     % r_i,     z_{j+1}
+\coordinate (C) at (2.6,1.8);   % r_{i+1}, z_{j+1}
+\coordinate (D) at (0,1.8);     % r_{i+1}, z_j
+
+% Sweep (theta-direction) offsets. Larger radius -> larger projected
+% displacement for the same physical d(theta), since arc length = r*dtheta.
+\coordinate (dIn)  at (0.70,0.42);
+\coordinate (dOut) at (1.10,0.66);
+
+\coordinate (Ap) at ($(A)+(dIn)$);
+\coordinate (Bp) at ($(B)+(dIn)$);
+\coordinate (Cp) at ($(C)+(dOut)$);
+\coordinate (Dp) at ($(D)+(dOut)$);
+
+% ---- back (hidden) rectangle ----
+\draw[gray!55,thin] (Ap) -- (Bp) -- (Cp) -- (Dp) -- cycle;
+
+% ---- sweep edges: r=const cylindrical surfaces, drawn as gentle arcs ----
+\draw[gray!65,thin]  (A) to[bend left=8]  (Ap);
+\draw[gray!65,thin]  (B) to[bend left=8]  (Bp);
+\draw[black!75,thin] (D) to[bend left=14] (Dp);
+\draw[black!75,thin] (C) to[bend left=14] (Cp);
+
+% ---- front face: the control volume, highlighted ----
+\fill[green!22] (A) -- (B) -- (C) -- (D) -- cycle;
+\draw[black,very thick] (A) -- (B) -- (C) -- (D) -- cycle;
+
+% ---- scalar node p,theta at cell centre ----
+\coordinate (P) at ($(A)!0.5!(C)$);
+\filldraw[blue] (P) circle (2.2pt);
+\node[blue,font=\small,above right=1pt] at (P) {$p_{i,j},\,\theta_{i,j}$};
+
+% ---- u (radial velocity) on the r-faces, red -- both point in +r ----
+\coordinate (uIn)  at ($(A)!0.5!(B)$);
+\coordinate (uOut) at ($(D)!0.5!(C)$);
+\draw[red,thick,->] ($(uIn)+(0,-0.22)$)  -- ($(uIn)+(0,0.20)$);
+\node[red,font=\small,below] at ($(uIn)+(0,-0.24)$) {$u_{i,j}$};
+\draw[red,thick,->] ($(uOut)+(0,-0.20)$) -- ($(uOut)+(0,0.22)$);
+\node[red,font=\small,above] at ($(uOut)+(0,0.24)$) {$u_{i+1,j}$};
+
+% ---- w (axial velocity) on the z-faces, teal -- both point in +z ----
+\coordinate (wLeft)  at ($(A)!0.5!(D)$);
+\coordinate (wRight) at ($(B)!0.5!(C)$);
+\draw[teal,thick,->] ($(wLeft)+(-0.20,0)$)  -- ($(wLeft)+(0.22,0)$);
+\node[teal,font=\small,left] at ($(wLeft)+(-0.22,0)$) {$w_{i,j}$};
+\draw[teal,thick,->] ($(wRight)+(-0.22,0)$) -- ($(wRight)+(0.20,0)$);
+\node[teal,font=\small,right] at ($(wRight)+(0.22,0)$) {$w_{i,j+1}$};
+
+% ---- r_i, r_{i+1} labels with leader lines to the curved (r=const) edges ----
+\draw[gray!70] (-0.55,-0.55) -- ($(A)!0.5!(Ap)$);
+\node[font=\small] at (-0.75,-0.7) {$r_i$};
+
+\draw[gray!70] (-0.55,2.35) -- ($(D)!0.5!(Dp)$);
+\node[font=\small] at (-0.75,2.5) {$r_{i+1}$};
+
+% ---- z_j, z_{j+1} labels ----
+\node[font=\small] at (0,-0.35) {$z_j$};
+\node[font=\small] at (2.6,-0.35) {$z_{j+1}$};
+
+% ---- dr, dz dimension arrows ----
+\draw[<->] (-1.15,0) -- (-1.15,1.8) node[midway,left,font=\small] {$\Delta r$};
+\draw[<->] (0,-0.85) -- (2.6,-0.85) node[midway,below,font=\small] {$\Delta z$};
+
+% ---- d(theta) angle indicator on the outer sweep (right of the CV, clear of labels) ----
+\draw[purple!70,densely dashed] (C) -- ($(C)+(1.0,0)$);
+\draw[purple!70,densely dashed] (Cp) -- ($(C)+(1.0,0)$);
+\draw[purple!70] ($(C)+(0.55,0)$) arc[start angle=0, end angle=31, radius=0.55];
+\node[purple!70,font=\small] at ($(C)+(0.85,0.22)$) {$\Delta\theta$};
+
+% ---- small r,z,theta orientation triad ----
+\begin{scope}[shift={(4.6,0.2)}]
+    \draw[->] (0,0) -- (0,0.7) node[above]{$r$};
+    \draw[->] (0,0) -- (0.9,0) node[right]{$z$};
+    \draw[->] (0,0) to[bend left=25] (0.35,0.32) node[right]{$\theta$};
+\end{scope}
+
+% ---- legend ----
+\begin{scope}[shift={(4.4,1.55)}]
+    \filldraw[blue] (0,0.55) circle (2.2pt);
+    \node[font=\small,right] at (0.15,0.55) {$p,\,\theta$ (cell centre)};
+    \draw[red,thick,->] (0,0.15) -- (0,0.4);
+    \node[font=\small,right] at (0.15,0.28) {$u$ ($r$-face)};
+    \draw[teal,thick,->] (0,-0.15) -- (0.25,-0.15);
+    \node[font=\small,right] at (0.35,-0.15) {$w$ ($z$-face)};
+\end{scope}
+
+\end{tikzpicture}
+\caption{Staggered grid in the $(r,z)$ plane. Scalars ($p$, $\theta$) at the cell centre
+         $(r_{c,i}, z_{c,j})$ (blue); radial velocity $u$ on the (curved, cylindrical)
+         $r$-faces (red), stored at $u_{i,j}$ and $u_{i+1,j}$; axial velocity $w$ on the
+         $z$-faces (teal), stored at $w_{i,j}$ and $w_{i,j+1}$. The control volume is
+         drawn swept through a finite $\Delta\theta$ purely to convey the 3-D cylindrical
+         shape of the $r$-faces (note the outer face at $r_{i+1}$ sweeps further than
+         the inner face at $r_i$, since arc length $=r\,\Delta\theta$); the axisymmetric
+         problem itself has $\partial/\partial\theta = 0$ and no $\theta$-dependence.}
     \label{fig:grid_structure}
 \end{figure}
 
@@ -341,10 +439,13 @@ For our grid:
 Pure central differencing is therefore prone to non-physical oscillations at these cell Peclet
 numbers. We use \textbf{2nd-order upwind (linear-upwind / LUD) differencing} for convective
 terms: at each face, the transported quantity is linearly extrapolated from the two cells on
-the \textit{upwind} side of the face, based on the sign of the transporting velocity. This keeps
-the upwind stability bias while being formally 2nd-order accurate, matching the assignment's
-FVM accuracy requirement (an earlier version of this solver used plain 1st-order upwind, which
-only satisfies this requirement for the diffusive terms).
+the \textit{upwind} side of the face, based on the sign of the transporting velocity. On a
+uniform grid and for a smooth solution, this face reconstruction has a truncation error of
+$\mathcal{O}(\Delta x^2)$, so the convective discretization is formally second-order accurate,
+as required by the assignment. This is an accuracy statement, not a boundedness guarantee:
+because the extrapolated face value is not limited, LUD can overshoot or undershoot near sharp
+transients, boundaries, or insufficiently resolved gradients. Thus the scheme is second-order
+in smooth regions but is not monotone or TVD everywhere.
 
 For a generic flux $F = v\,\phi$ at the face between cells $i$ and $i+1$:
 \begin{equation}
@@ -458,13 +559,14 @@ Boundary conditions for $p'$:
     \item Centreline ($r=0$): Neumann $\partial p'/\partial r = 0$ (natural: $r_{-\frac{1}{2}} = 0$, flux vanishes)
     \item Wall ($r=0.5$): Neumann $\partial p'/\partial r = 0$
     \item Inlet ($z=0$): Neumann $\partial p'/\partial z = 0$
-    \item Outlet ($z=50$): Dirichlet $p' = 0$ (reference pressure)
+    \item Outlet ($z=50$): Dirichlet $p' = 0$ is imposed at the last pressure cell centre as the reference. This location is half a cell upstream of the physical outlet face, so the condition is a discrete pressure reference rather than an exactly face-centred outlet condition.
 \end{itemize}
 
 \subsection{Ghost Cells and Boundary Implementation}
 
-Ghost cells are used to impose boundary conditions in the staggered grid.
-For each boundary, a ghost cell value is defined such that the appropriate condition is satisfied at the boundary face.
+Ghost cells are used to impose the velocity and temperature boundary conditions in the staggered grid.
+Pressure-correction boundary conditions are imposed in the sparse Poisson matrix; the outlet
+reference is applied at the last pressure cell centre rather than through a pressure ghost cell.
 
 \begin{table}[H]
 \centering
@@ -603,7 +705,7 @@ Figure~\ref{fig:flowchart} shows the algorithm implemented in \texttt{main.m}.
 \subsection{Key Implementation Details}
 
 \begin{itemize}
-    \item \textbf{2nd-order upwind differencing}: Convective fluxes in both momentum and energy equations use 2nd-order (linear-extrapolation) upwind to avoid oscillations at high Peclet numbers ($\text{Pe}_z = 20$ for momentum, $\text{Pe}_{\theta} = 100$ for energy) while remaining formally 2nd-order accurate.
+    \item \textbf{2nd-order upwind differencing}: Convective fluxes in both momentum and energy equations use LUD. It is formally second-order on smooth, resolved regions, as required by the assignment, but it is unbounded and can produce small local overshoots near sharp transients or boundaries.
 
     \item \textbf{Sparse direct solver}: The Poisson matrix ($12{,}500 \times 12{,}500$) is assembled once using MATLAB's \texttt{sparse} function and solved each time step with the backslash operator (\texttt{A\textbackslash b}).
 
@@ -611,7 +713,7 @@ Figure~\ref{fig:flowchart} shows the algorithm implemented in \texttt{main.m}.
 
     \item \textbf{Staggered grid}: Prevents checkerboard pressure oscillations; velocity components are stored at the faces where mass fluxes are naturally evaluated.
 
-    \item \textbf{Ghost cells}: All boundary conditions are implemented via ghost-cell extensions. The arrays are extended by one row/column using MATLAB array concatenation, and the boundary condition determines the ghost value. This avoids special-casing inside the stencil computations.
+    \item \textbf{Ghost cells}: Velocity and temperature boundary conditions are implemented through ghost-cell extensions. Pressure-correction boundary conditions are imposed directly in the sparse Poisson matrix, including the last-cell-centre outlet reference.
 \end{itemize}
 
 \newpage
@@ -755,7 +857,7 @@ radial coefficients $(2r^*)^2-\tfrac14(2r^*)^4-\tfrac34$ yields
 $\theta_{\text{wall}}-\theta_{\text{bulk}} = \tfrac{11}{24}\,\Rey\Pran$ and hence
 $\text{Nu}=24/11\approx2.18$ --- exactly half of $48/11$, and inconsistent both with this
 classical result and with the assignment's own stated wall condition (that literal profile has
-wall gradient $2\,\Rey\Pran$, and its bulk temperature is not $4z^*$). The converged CFD
+wall gradient $2\,\Rey\Pran$, and its bulk temperature is not $4z^*$). The finite-time CFD
 solution gives $\text{Nu}\approx4.4\text{--}4.6$ over $z^*=20\text{--}40$, approaching $48/11$
 where the thermal field has had the most settling time. The full derivation, the literature
 sources, and the empirical table are collected in
@@ -786,7 +888,7 @@ $\Delta z$ & 0.2 & Axial grid spacing \\
 $\Delta t$ & 0.002 & Time step \\
 $n_{\text{steps}}$ & 30\,000 & Maximum time steps \\
 $\alpha_p$ & 0.7 & Pressure under-relaxation \\
-Convective scheme & 2nd-order upwind (LUD) & Stability for Pe $\gg 2$, 2nd-order accurate \\
+Convective scheme & 2nd-order upwind (LUD) & Stability for Pe $\gg 2$; formally 2nd-order on smooth, resolved fields \\
 Time integration & Explicit Adams--Bashforth 2 & 2nd-order; Euler startup \\
 \bottomrule
 \end{tabular}
@@ -893,9 +995,10 @@ convergence claim.
              only meant to be reached for increasing $z^*$, not a valid prediction at every $z^*$
              --- evaluated at small $z^*$ (e.g.\ $z^*=4.9$) it would extrapolate to strongly
              negative $\theta$ near the centreline (the $4z^*$ term not yet compensating for the
-             formula's negative radial offset), unlike the numerical solution, which is always
-             non-negative (bounded below by zero given the zero-inlet condition and heating-only
-             wall BC) --- hence it is not plotted at those smaller-$z^*$ positions.}
+             formula's negative radial offset). The final numerical field is essentially
+             non-negative; a small, localized transient LUD undershoot occurs near the
+             inlet--wall corner during the first time steps. Hence the asymptotic curve is not
+             plotted at those smaller-$z^*$ positions.}
     \label{fig:T_profiles}
 \end{figure}
 
@@ -904,12 +1007,17 @@ convergence claim.
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.85\textwidth]{../AdamsBashfort2/Plots_matlab/w_comparison.png}
-    \caption{Velocity profile at $z^* = 50$ (fully developed): numerical vs.\ analytical
+    \caption{Velocity profile at the last cell-centre location, $z^*=49.9$ (nominally the
+             $z^*=50$ outlet, fully developed): numerical vs.\ analytical
              Hagen--Poiseuille solution. The absolute-error minimum near $r^*\approx0.43$
-             is the zero crossing of the signed discretization error: conservation fixes the
-             same area-mean velocity for both profiles, so a small negative core error is
-             balanced by a small positive near-wall error. The rise toward the wall is the
-             expected local boundary/curvature truncation error, not a physical velocity minimum.}
+             occurs where the signed difference between the numerical and analytical profiles
+             changes sign. Conservation fixes the numerical area-mean velocity through the
+             imposed inlet flow rate, which agrees with the continuous Hagen--Poiseuille mean;
+             consequently, a small negative core error is compensated by a small positive
+             near-wall error. The discrete cell-centre means differ slightly because of radial
+             quadrature. The subsequent rise toward the wall is associated with local wall and
+             cylindrical-curvature discretization, wall ghost-cell treatment, and profile
+             sampling, not with a physical velocity minimum.}
     \label{fig:w_comparison}
 \end{figure}
 
@@ -942,7 +1050,11 @@ The numerical results reproduce the expected physics:
 \appendix
 
 % The following appendix provides the complete FVM derivation including
-% projection method, Poisson solver procedure, and ghost-cell BCs.
+% projection method, Poisson solver procedure, and ghost-cell BCs, for the
+% (r,z) axisymmetric problem that was actually solved. The Cartesian (x,y)
+% and cylindrical (r,phi) derivations are supplementary (requested by the
+% assignment brief as general derivation exercises, not part of the solved
+% problem) and are collected separately in Supplementary_Derivations.pdf.
 \input{2_2D_cylindrical_coordinates_uw}
 \label{app:derivation}
 
@@ -955,8 +1067,7 @@ The numerical results reproduce the expected physics:
 \label{app:code}
 
 The complete MATLAB source code for the AB2 solver is listed below. Each function
-corresponds to a module in Table~\ref{tab:modules}; the same code base (differing only
-in the time-integration step) is used for the Heun reference solver.
+corresponds to a module in Table~\ref{tab:modules}.
 
 \subsection{Configuration and Initialisation}
 \lstinputlisting[caption={constants.m --- Physical parameters, grid size, and solver tolerances}, label={lst:constants}]{../AdamsBashfort2/src_matlab/constants.m}
