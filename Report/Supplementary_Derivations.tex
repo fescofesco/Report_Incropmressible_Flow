@@ -1,0 +1,106 @@
+\documentclass[12pt,a4paper]{article}
+
+% Packages
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{graphicx}
+\usepackage{geometry}
+\usepackage{float}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{hyperref}
+\usepackage{siunitx}
+\usepackage{booktabs}
+\usepackage{bm}
+\usepackage{tikz}
+\usetikzlibrary{shapes.geometric, arrows.meta, positioning, fit, calc}
+\usepackage{xcolor}
+
+% Page geometry
+\geometry{margin=2.5cm}
+
+% Custom commands (same as main.tex)
+\newcommand{\parder}[2]{\frac{\partial #1}{\partial #2}}
+\newcommand{\pparder}[2]{\frac{\partial^2 #1}{\partial {#2}^2}}
+\newcommand{\Rey}{\text{Re}}
+\newcommand{\Pran}{\text{Pr}}
+
+\begin{document}
+
+% ============================================================================
+% TITLE PAGE
+% ============================================================================
+\begin{titlepage}
+    \centering
+    \vspace*{2cm}
+
+    {\Huge\bfseries Supplementary Derivations\par}
+
+    \vspace{1cm}
+
+    {\Large Cartesian and $(r,\phi)$ Cylindrical Coordinate Formulations\par}
+    {\large --- Not Required by the Solved Assignment Problem ---\par}
+
+    \vspace{1cm}
+
+    {\large LV-Nr.: 321.053 EX\par}
+    {\large Winter Semester 2025/26\par}
+
+    \vfill
+
+    {\Large
+    Felix Scope\\
+    \texttt{felix\_scope@yahoo.de}\\
+    }
+
+    \vfill
+
+    {\large \today\par}
+\end{titlepage}
+
+\tableofcontents
+\newpage
+
+% ============================================================================
+% PREFACE
+% ============================================================================
+\section*{Preface}
+\addcontentsline{toc}{section}{Preface}
+
+The graded assignment brief (\texttt{Assignment\_WS25.pdf}) asks, regarding
+the theoretical derivation, only for the conservation equations of this 2D
+flow problem to be formulated \emph{in cylindrical coordinates}
+("\emph{Formulieren Sie die Erhaltungsgleichungen, welche dieses
+zwei-dimensionale Str\"omungsproblem beschreiben, in Zylinderkoordinaten}").
+The problem that was actually solved numerically -- entrance flow in a
+cylindrical pipe -- is axisymmetric and uses the $(r,z)$ formulation with
+velocities $(u,w)$. That derivation (governing equations, staggered-grid
+layout, finite-volume discretisation, projection method, Poisson solver, and
+ghost-cell boundary treatment), together with the MATLAB implementation and
+results, is given in full in the main report (\texttt{main.pdf}, Appendix A).
+
+The Cartesian $(x,y)$ and cylindrical $(r,\phi)$ derivations below go beyond
+that brief. They follow a separate working note
+(\texttt{Assignemnt/Derivations\_assignment}) that additionally called for
+the same derivation method -- governing equations through ghost cells -- to
+be carried out for 2D Cartesian $(x,y)$ and for 2D cylindrical $(r,\phi)$
+with velocities $(u,v)$, alongside the $(r,z)$ case. Neither of these two
+coordinate systems was ever solved numerically (no Cartesian domain and no
+azimuthal/polar domain were part of the solver), so they are collected here,
+separate from the main report, rather than in its appendix: the main
+submission stays focused on the problem the graded brief actually asks for,
+while this supplementary material remains available for reference.
+
+\newpage
+
+% ============================================================================
+% APPENDIX-STYLE DERIVATIONS
+% ============================================================================
+\input{1_2D_cartesian_xy}
+
+\newpage
+
+\input{3_2D_cylindrical_coordinates_uv}
+
+\end{document}

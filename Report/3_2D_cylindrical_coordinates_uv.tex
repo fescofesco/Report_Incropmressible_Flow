@@ -76,57 +76,88 @@ This is the **convective form**. In cylindrical coordinates, the conservation fo
 
 \begin{figure}[H]
 \centering
-\begin{tikzpicture}[scale=1.1]
-    % Grid (r horizontal, phi vertical)
-    \draw[gray!40,thin] (0,0) grid (4,4);
+\begin{tikzpicture}[scale=1.25, >=Latex]
 
-    % Cell centres
-    \foreach \i in {0.5,1.5,2.5,3.5}{
-        \foreach \j in {0.5,1.5,2.5,3.5}{
-            \filldraw[blue] (\i,\j) circle (2.5pt);
-        }
-    }
-    % u-faces (radial direction, horizontal faces)
-    \foreach \i in {1,2,3}{
-        \foreach \j in {0.5,1.5,2.5,3.5}{
-            \draw[red,thick,->] (\i-0.18,\j) -- (\i+0.18,\j);
-        }
-    }
-    % v-faces (azimuthal direction, vertical faces)
-    \foreach \i in {0.5,1.5,2.5,3.5}{
-        \foreach \j in {1,2,3}{
-            \draw[teal,thick,->] (\i,\j-0.18) -- (\i,\j+0.18);
-        }
-    }
+\def\rin{2.4}
+\def\rout{3.7}
+\def\phia{10}
+\def\phib{52}
+\def\phim{31}
+\def\rm{3.05}
 
-    % Axes
-    \draw[->] (-0.3,0) -- (4.5,0) node[right]{$r$};
-    \draw[->] (0,-0.3) -- (0,4.5) node[above]{$\phi$};
+\coordinate (A) at (\phia:\rin);
+\coordinate (B) at (\phib:\rin);
+\coordinate (D) at (\phia:\rout);
+\coordinate (C) at (\phib:\rout);
 
-    % Labels for one cell
-    \node[blue,  font=\small] at (1.5,1.5) {$p_{i,j}$};
-    \node[red,   font=\small, below] at (2,1.5) {$u_{i+\frac{1}{2},j}$};
-    \node[teal,  font=\small, right] at (1.5,2) {$v_{i,j+\frac{1}{2}}$};
+% ---- filled control volume: a true annular sector (r,phi is the physical plane) ----
+\fill[green!22] (A) arc[start angle=\phia, end angle=\phib, radius=\rin]
+                 -- (C) arc[start angle=\phib, end angle=\phia, radius=\rout]
+                 -- cycle;
+\draw[black, very thick]
+     (A) arc[start angle=\phia, end angle=\phib, radius=\rin]
+     -- (C) arc[start angle=\phib, end angle=\phia, radius=\rout]
+     -- cycle;
 
-    % Index labels
-    \node[font=\footnotesize] at (0.5,-0.35) {$i{-}1$};
-    \node[font=\footnotesize] at (1.5,-0.35) {$i$};
-    \node[font=\footnotesize] at (2.5,-0.35) {$i{+}1$};
-    \node[font=\footnotesize] at (-0.35,0.5) {$j{-}1$};
-    \node[font=\footnotesize] at (-0.3,1.5) {$j$};
-    \node[font=\footnotesize] at (-0.3,2.5) {$j{+}1$};
+% ---- scalar node p at cell centre ----
+\coordinate (P) at (\phim:\rm);
+\filldraw[blue] (P) circle (2.2pt);
+\node[blue, font=\small, below=4pt] at (P) {$p_{i,j}$};
 
-    % Control volume sketch
-    \fill[yellow!25, opacity=0.5] (1,1) rectangle (2,2);
-    \draw[dashed, orange] (1,1) rectangle (2,2);
-    \node[font=\footnotesize, orange] at (1.5,1.85) {$\Delta r \cdot r\,\Delta\phi$};
+% ---- u (radial velocity) on the r-faces, red ----
+\draw[red,thick,->] (\phim:\rin-0.32) -- (\phim:\rin+0.24);
+\node[red,font=\small, anchor=north] at (\phim:\rin-0.32) {$u_{i-\frac12,j}$};
+\draw[red,thick,->] (\phim:\rout-0.24) -- (\phim:\rout+0.32);
+\node[red,font=\small, anchor=south] at (\phim:\rout+0.32) {$u_{i+\frac12,j}$};
 
-    % Legend
-    \filldraw[blue] (4.7,3.8) circle (2.5pt); \node[font=\small,right] at (4.8,3.8) {$p$};
-    \draw[red,thick,->]  (4.55,3.3) -- (4.9,3.3); \node[font=\small,right] at (4.95,3.3) {$u$};
-    \draw[teal,thick,->] (4.7,2.65) -- (4.7,3.0); \node[font=\small,right] at (4.8,2.82) {$v$};
+% ---- v (azimuthal velocity) on the phi-faces, teal ----
+\draw[teal,thick,->] (\phia+7:\rm) -- (\phia-7:\rm);
+\node[teal,font=\small, anchor=north east] at (\phia-9:\rm) {$v_{i,j-\frac12}$};
+\draw[teal,thick,->] (\phib-7:\rm) -- (\phib+7:\rm);
+\node[teal,font=\small, anchor=south west] at (\phib+9:\rm) {$v_{i,j+\frac12}$};
+
+% ---- r_i, r_{i+1} leader labels, tucked near the origin ----
+\draw[gray!70] (\phia-22:1.15) -- (A);
+\node[font=\small] at (\phia-30:1.0) {$r_i$};
+\draw[gray!70] (\phia-22:2.05) -- (D);
+\node[font=\small] at (\phia-30:2.2) {$r_{i+1}$};
+
+% ---- phi_{j-1}, phi_j labels near the origin, next to the Delta-phi arc ----
+\node[font=\small] at (\phia+3:1.55) {$\phi_{j-1}$};
+\node[font=\small] at (\phib-3:1.65) {$\phi_j$};
+
+% ---- Delta r dimension, on the far (outer) side ----
+\draw[<->] (\phib+15:\rin) -- (\phib+15:\rout)
+    node[midway, sloped, above, font=\small] {$\Delta r$};
+
+% ---- Delta phi angle indicator near the origin ----
+\draw[purple!70,densely dashed] (0,0) -- (\phia:1.0);
+\draw[purple!70,densely dashed] (0,0) -- (\phib:1.0);
+\draw[purple!70,->] (\phia:0.55) arc[start angle=\phia, end angle=\phib, radius=0.55];
+\node[purple!70,font=\small] at (\phim:0.8) {$\Delta\phi$};
+\filldraw[black] (0,0) circle(0.8pt);
+\node[font=\scriptsize, below=1pt] at (0,0) {$O$};
+
+% ---- legend ----
+\begin{scope}[shift={(4.5,1.6)}]
+    \filldraw[blue] (0,0.85) circle (2.2pt);
+    \node[font=\small,right] at (0.15,0.85) {$p$ (cell centre)};
+    \draw[red,thick,->] (0,0.45) -- (0,0.7);
+    \node[font=\small,right] at (0.15,0.58) {$u$ ($r$-face)};
+    \draw[teal,thick,->] (0,0.15) -- (0.25,0.15);
+    \node[font=\small,right] at (0.35,0.15) {$v$ ($\phi$-face)};
+\end{scope}
+
 \end{tikzpicture}
-\caption{Staggered grid in the $(r,\phi)$ plane. Scalars at cell centres (blue); radial velocity $u$ at $r$-faces (red); azimuthal velocity $v$ at $\phi$-faces (teal). The control volume area element is $\Delta r \cdot r\,\Delta\phi$.}
+\caption{Staggered grid in the $(r,\phi)$ plane. Scalars ($p$) at the cell centre (blue);
+         radial velocity $u$ on the $r$-faces (red); azimuthal velocity $v$ on the
+         $\phi$-faces (teal). Unlike the $(r,z)$ grid used for the axisymmetric
+         pipe-flow problem, here $(r,\phi)$ \emph{is} the physical plane itself, so the
+         control volume is drawn
+         as a true annular sector of radial extent $\Delta r$ and angular extent
+         $\Delta\phi$ rather than a swept projection; its area element is
+         $dA = r\,dr\,d\phi$, so the outer face at $r_{i+1}$ is physically longer than
+         the inner face at $r_i$.}
 \label{fig:cyl_uv_grid}
 \end{figure}
 
@@ -384,9 +415,9 @@ Rearranging Eq.~\eqref{eq:cyl_uv_disc_poisson}:
     \draw[gray!60,thin] (0,0) grid (5,4);
     \draw[black,very thick] (1,0.5) rectangle (4,3.5);
 
-    % Axes
-    \draw[->] (-0.2,0) -- (5.3,0) node[right]{$r$};
-    \draw[->] (0,-0.2) -- (0,4.3) node[above]{$\phi$};
+    % Axes -- kept in a clear corner, away from the ghost-band labels
+    \draw[->] (-0.9,-0.9) -- (-0.1,-0.9) node[right,font=\small]{$r$};
+    \draw[->] (-0.9,-0.9) -- (-0.9,-0.1) node[above,font=\small]{$\phi$};
 
     % Labels
     \node[blue, font=\small] at (2.5,2)   {Physical domain};

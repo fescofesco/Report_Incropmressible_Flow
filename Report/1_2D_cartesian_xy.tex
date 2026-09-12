@@ -326,6 +326,58 @@ $b_{i,j} = \dfrac{\rho}{\Delta t}
 \!\left(\dfrac{u^*_{i+\frac{1}{2},j}-u^*_{i-\frac{1}{2},j}}{\Delta x}
         +\dfrac{v^*_{i,j+\frac{1}{2}}-v^*_{i,j-\frac{1}{2}}}{\Delta y}\right)$.
 
+Equation~\eqref{eq:cart_gs} couples each cell only to its four nearest neighbours
+through the face velocities -- the same five-point stencil used for the temperature
+equation, since $T$ shares the scalar (cell-centre) storage location with $p$:
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[scale=1.3, >=Latex]
+
+% ---- central CV ----
+\fill[green!22] (-0.7,-0.7) rectangle (0.7,0.7);
+\draw[black,very thick] (-0.7,-0.7) rectangle (0.7,0.7);
+\filldraw[blue] (0,0) circle (2.2pt);
+\node[blue,font=\small,below=3pt] at (0,0) {$p_{i,j},\,T_{i,j}$};
+
+% ---- East face / neighbour ----
+\draw[red,thick,->] (0.55,0) -- (0.95,0);
+\node[red,font=\footnotesize,above] at (0.75,0.05) {$u_{i+\frac12,j}$};
+\node[font=\small,right] at (1.65,0) {$p_{i+1,j},\,T_{i+1,j}$};
+
+% ---- West face / neighbour ----
+\draw[red,thick,->] (-0.95,0) -- (-0.55,0);
+\node[red,font=\footnotesize,above] at (-0.75,0.05) {$u_{i-\frac12,j}$};
+\node[font=\small,left] at (-1.65,0) {$p_{i-1,j},\,T_{i-1,j}$};
+
+% ---- North face / neighbour ----
+\draw[teal,thick,->] (0,0.55) -- (0,0.95);
+\node[teal,font=\footnotesize,right] at (0.05,0.75) {$v_{i,j+\frac12}$};
+\node[font=\small,above] at (0,1.55) {$p_{i,j+1},\,T_{i,j+1}$};
+
+% ---- South face / neighbour ----
+\draw[teal,thick,->] (0,-0.95) -- (0,-0.55);
+\node[teal,font=\footnotesize,right] at (0.05,-0.75) {$v_{i,j-\frac12}$};
+\node[font=\small,below] at (0,-1.55) {$p_{i,j-1},\,T_{i,j-1}$};
+
+% ---- Delta x, Delta y dimensions ----
+\draw[<->] (-0.7,-1.05) -- (0.7,-1.05) node[midway,below,font=\small]{$\Delta x$};
+\draw[<->] (-1.05,-0.7) -- (-1.05,0.7) node[midway,left,font=\small]{$\Delta y$};
+
+% ---- axis reference ----
+\begin{scope}[shift={(2.3,-1.4)}]
+    \draw[->] (0,0) -- (0.6,0) node[right,font=\small]{$x$};
+    \draw[->] (0,0) -- (0,0.6) node[above,font=\small]{$y$};
+\end{scope}
+
+\end{tikzpicture}
+\caption{Five-point stencil for the discrete Poisson equation, Eq.~\eqref{eq:cart_gs}.
+         The pressure correction $p'$ (and, by the same indexing, $T$) at cell $(i,j)$
+         couples only to its four nearest neighbours, through the face velocities $u$
+         (east/west) and $v$ (north/south).}
+\label{fig:cart_stencil}
+\end{figure}
+
 \textbf{Iterative procedure (Gauss--Seidel or SOR):}
 \begin{enumerate}
     \item Initialise $p'_{i,j}=0$ everywhere.

@@ -65,57 +65,107 @@ where for a Newtonian fluid with constant viscosity $\mu = \rho\nu$:
 
 \begin{figure}[H]
 \centering
-\begin{tikzpicture}[scale=1.15]
-    % Grid
-    \draw[gray!40,thin] (0,0) grid (4,3);
+\begin{tikzpicture}[scale=1.5, >=Latex]
 
-    % Cell centres (p, T)
-    \foreach \i in {0.5,1.5,2.5,3.5}{
-        \foreach \j in {0.5,1.5,2.5}{
-            \filldraw[blue] (\i,\j) circle (2.5pt);
-        }
-    }
-    % u-faces (horizontal, r-direction) -- r increases upward
-    \foreach \i in {0.5,1.5,2.5,3.5}{
-        \foreach \j in {1,2}{
-            \draw[red,thick,->] (\i,\j-0.18) -- (\i,\j+0.18);
-        }
-    }
-    % w-faces (vertical, z-direction)
-    \foreach \i in {1,2,3}{
-        \foreach \j in {0.5,1.5,2.5}{
-            \draw[teal,thick,->] (\i-0.18,\j) -- (\i+0.18,\j);
-        }
-    }
+% ---------------------------------------------------------------
+% Front face (theta = theta_j): the (r,z) cross-section of one CV
+% ---------------------------------------------------------------
+\coordinate (A) at (0,0);       % r_i,     z_j
+\coordinate (B) at (2.6,0);     % r_i,     z_{j+1}
+\coordinate (C) at (2.6,1.8);   % r_{i+1}, z_{j+1}
+\coordinate (D) at (0,1.8);     % r_{i+1}, z_j
 
-    % Axes
-    \draw[->] (-0.3,0) -- (4.5,0) node[right]{$z$};
-    \draw[->] (0,-0.3) -- (0,3.5) node[above]{$r$};
+% Sweep (theta-direction) offsets. Larger radius -> larger projected
+% displacement for the same physical d(theta), since arc length = r*dtheta.
+\coordinate (dIn)  at (0.70,0.42);
+\coordinate (dOut) at (1.10,0.66);
 
-    % Centreline at r=0
-    \draw[dashed, gray] (-0.3,0) -- (4.5,0);
-    \node[gray, font=\footnotesize] at (4.7,0) {$r{=}0$};
+\coordinate (Ap) at ($(A)+(dIn)$);
+\coordinate (Bp) at ($(B)+(dIn)$);
+\coordinate (Cp) at ($(C)+(dOut)$);
+\coordinate (Dp) at ($(D)+(dOut)$);
 
-    % Labels
-    \node[blue,  font=\small] at (1.5,1.5) {$p_{i,j}$};
-    \node[red,   font=\small, right] at (1.5,2) {$u_{i+\frac{1}{2},j}$};
-    \node[teal,  font=\small, above] at (2,1.5) {$w_{i,j+\frac{1}{2}}$};
+% ---- back (hidden) rectangle ----
+\draw[gray!55,thin] (Ap) -- (Bp) -- (Cp) -- (Dp) -- cycle;
 
-    % Index labels
-    \node[font=\footnotesize] at (0.5,-0.35) {$j{-}1$};
-    \node[font=\footnotesize] at (1.5,-0.35) {$j$};
-    \node[font=\footnotesize] at (2.5,-0.35) {$j{+}1$};
-    \node[font=\footnotesize] at (-0.35,0.5) {$i{-}1$};
-    \node[font=\footnotesize] at (-0.3,1.5) {$i$};
-    \node[font=\footnotesize] at (-0.3,2.5) {$i{+}1$};
+% ---- sweep edges: r=const cylindrical surfaces, drawn as gentle arcs ----
+\draw[gray!65,thin]  (A) to[bend left=8]  (Ap);
+\draw[gray!65,thin]  (B) to[bend left=8]  (Bp);
+\draw[black!75,thin] (D) to[bend left=14] (Dp);
+\draw[black!75,thin] (C) to[bend left=14] (Cp);
 
-    % Legend
-    \filldraw[blue] (4.7,2.8) circle (2.5pt);
-    \node[font=\small, right] at (4.8,2.8) {$p$, $T$};
-    \draw[red,thick,->]  (4.6,2.3) -- (4.6,2.6); \node[font=\small, right] at (4.7,2.45) {$u$ (r-face)};
-    \draw[teal,thick,->] (4.6,1.8) -- (4.95,1.8); \node[font=\small, right] at (5.0,1.8) {$w$ (z-face)};
+% ---- front face: the control volume, highlighted ----
+\fill[green!22] (A) -- (B) -- (C) -- (D) -- cycle;
+\draw[black,very thick] (A) -- (B) -- (C) -- (D) -- cycle;
+
+% ---- scalar node p,T at cell centre ----
+\coordinate (P) at ($(A)!0.5!(C)$);
+\filldraw[blue] (P) circle (2.2pt);
+\node[blue,font=\small,above right=1pt] at (P) {$p_{i,j},\,T_{i,j}$};
+
+% ---- u (radial velocity) on the r-faces, red -- both point in +r ----
+\coordinate (uIn)  at ($(A)!0.5!(B)$);
+\coordinate (uOut) at ($(D)!0.5!(C)$);
+\draw[red,thick,->] ($(uIn)+(0,-0.22)$)  -- ($(uIn)+(0,0.20)$);
+\node[red,font=\small,below] at ($(uIn)+(0,-0.24)$) {$u_{i-\frac12,j}$};
+\draw[red,thick,->] ($(uOut)+(0,-0.20)$) -- ($(uOut)+(0,0.22)$);
+\node[red,font=\small,above] at ($(uOut)+(0,0.24)$) {$u_{i+\frac12,j}$};
+
+% ---- w (axial velocity) on the z-faces, teal -- both point in +z ----
+\coordinate (wLeft)  at ($(A)!0.5!(D)$);
+\coordinate (wRight) at ($(B)!0.5!(C)$);
+\draw[teal,thick,->] ($(wLeft)+(-0.20,0)$)  -- ($(wLeft)+(0.22,0)$);
+\node[teal,font=\small,left] at ($(wLeft)+(-0.22,0)$) {$w_{i,j-\frac12}$};
+\draw[teal,thick,->] ($(wRight)+(-0.22,0)$) -- ($(wRight)+(0.20,0)$);
+\node[teal,font=\small,right] at ($(wRight)+(0.22,0)$) {$w_{i,j+\frac12}$};
+
+% ---- r_i, r_{i+1} labels with leader lines to the curved (r=const) edges ----
+\draw[gray!70] (-0.55,-0.55) -- ($(A)!0.5!(Ap)$);
+\node[font=\small] at (-0.75,-0.7) {$r_i$};
+
+\draw[gray!70] (-0.55,2.35) -- ($(D)!0.5!(Dp)$);
+\node[font=\small] at (-0.75,2.5) {$r_{i+1}$};
+
+% ---- z_j, z_{j+1} labels ----
+\node[font=\small] at (0,-0.35) {$z_j$};
+\node[font=\small] at (2.6,-0.35) {$z_{j+1}$};
+
+% ---- dr, dz dimension arrows ----
+\draw[<->] (-1.15,0) -- (-1.15,1.8) node[midway,left,font=\small] {$\Delta r$};
+\draw[<->] (0,-0.85) -- (2.6,-0.85) node[midway,below,font=\small] {$\Delta z$};
+
+% ---- d(theta) angle indicator on the outer sweep (right of the CV, clear of labels) ----
+\draw[purple!70,densely dashed] (C) -- ($(C)+(1.0,0)$);
+\draw[purple!70,densely dashed] (Cp) -- ($(C)+(1.0,0)$);
+\draw[purple!70] ($(C)+(0.55,0)$) arc[start angle=0, end angle=31, radius=0.55];
+\node[purple!70,font=\small] at ($(C)+(0.85,0.22)$) {$\Delta\theta$};
+
+% ---- small r,z,theta orientation triad ----
+\begin{scope}[shift={(4.6,0.2)}]
+    \draw[->] (0,0) -- (0,0.7) node[above]{$r$};
+    \draw[->] (0,0) -- (0.9,0) node[right]{$z$};
+    \draw[->] (0,0) to[bend left=25] (0.35,0.32) node[right]{$\theta$};
+\end{scope}
+
+% ---- legend ----
+\begin{scope}[shift={(4.4,1.55)}]
+    \filldraw[blue] (0,0.55) circle (2.2pt);
+    \node[font=\small,right] at (0.15,0.55) {$p,\,T$ (cell centre)};
+    \draw[red,thick,->] (0,0.15) -- (0,0.4);
+    \node[font=\small,right] at (0.15,0.28) {$u$ ($r$-face)};
+    \draw[teal,thick,->] (0,-0.15) -- (0.25,-0.15);
+    \node[font=\small,right] at (0.35,-0.15) {$w$ ($z$-face)};
+\end{scope}
+
 \end{tikzpicture}
-\caption{Staggered grid in the $(r,z)$ plane. Scalars ($p$, $T$) at cell centres (blue); radial velocity $u$ on horizontal faces (red); axial velocity $w$ on vertical faces (teal). The dashed line marks the symmetry axis $r=0$.}
+\caption{Staggered grid in the $(r,z)$ plane. Scalars ($p$, $T$) at the cell centre
+         (blue); radial velocity $u$ on the (curved, cylindrical) $r$-faces (red);
+         axial velocity $w$ on the $z$-faces (teal). The control volume is drawn
+         swept through a finite $\Delta\theta$ purely to convey the 3-D cylindrical
+         shape of the $r$-faces (note the outer face at $r_{i+1}$ sweeps further
+         than the inner face at $r_i$, since arc length $=r\,\Delta\theta$); the
+         axisymmetric problem itself has $\partial/\partial\theta = 0$ and no
+         $\theta$-dependence.}
 \label{fig:cyl_uw_grid}
 \end{figure}
 
@@ -368,9 +418,9 @@ Note: fix one pressure value (e.g.\ $p'_{1,N_z}=0$ at the outlet corner) to remo
     % Physical boundary
     \draw[black,very thick] (1,1) rectangle (5,3);
 
-    % Arrows / axes
-    \draw[->] (-0.3,0.5) -- (6.3,0.5) node[right]{$z$};
-    \draw[->] (0.5,-0.2) -- (0.5,4.3) node[above]{$r$};
+    % Arrows / axes -- kept in a clear corner, away from the ghost-band labels
+    \draw[->] (-0.9,-0.9) -- (-0.9,-0.1) node[above,font=\small]{$r$};
+    \draw[->] (-0.9,-0.9) -- (-0.1,-0.9) node[right,font=\small]{$z$};
 
     % Labels
     \node[blue,  font=\small] at (3,2)   {Interior domain};

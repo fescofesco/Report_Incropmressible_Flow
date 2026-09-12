@@ -23,8 +23,8 @@ n_z = 250  # Number of grid points in axial direction
 # ============================================================================
 # TIME PARAMETERS
 # ============================================================================
-dt = 0.002      # Time step (non-dimensional)
-n_steps = 30000 # Number of time steps (t_final = 60, > flow-through time L/W=50)
+dt = 0.002       # Time step (non-dimensional)
+n_steps = 100000 # Maximum number of time steps (t_final = 200)
 output_interval = 1000  # Save output every N steps
 
 # ============================================================================

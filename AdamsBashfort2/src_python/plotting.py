@@ -8,7 +8,8 @@ import matplotlib.pyplot as plt
 from matplotlib import cm
 
 
-def plot_velocity_contour_axial(w_star, r_grid, z_grid, title="Axial Velocity w/W_in"):
+def plot_velocity_contour_axial(w_star, r_grid, z_grid, u_star=None,
+                                title="Axial Velocity w/W_in"):
     """
     Plot contour of non-dimensional axial velocity
 
@@ -20,6 +21,8 @@ def plot_velocity_contour_axial(w_star, r_grid, z_grid, title="Axial Velocity w/
         Radial grid coordinates
     z_grid : ndarray (n_z,)
         Axial grid coordinates
+    u_star : ndarray (n_r, n_z), optional
+        Cell-centre radial velocity field for the quiver overlay
     title : str
         Plot title
 
@@ -30,8 +33,21 @@ def plot_velocity_contour_axial(w_star, r_grid, z_grid, title="Axial Velocity w/
     fig, ax = plt.subplots(figsize=(12, 4))
 
     Z, R = np.meshgrid(z_grid, r_grid)
-    contour = ax.contourf(Z, R, w_star, levels=50, cmap='jet')
-    ax.contour(Z, R, w_star, levels=10, colors='black', linewidths=0.5, alpha=0.3)
+    contour = ax.contourf(Z, R, w_star, levels=20, cmap='jet')
+
+    if u_star is not None:
+        # Match MATLAB: decimate only the display so individual arrows remain readable.
+        z_arrow = slice(0, None, 5)
+        r_arrow = slice(0, None, 2)
+        quiver = ax.quiver(Z[r_arrow, z_arrow], R[r_arrow, z_arrow],
+                   0.45 * w_star[r_arrow, z_arrow],
+                   0.45 * u_star[r_arrow, z_arrow],
+                   color='k', angles='xy', scale_units='xy', scale=1,
+                   width=0.0015)
+        quiver.set_clip_on(True)
+
+    ax.set_xlim(z_grid[0], z_grid[-1])
+    ax.set_ylim(0.0, 0.5)
 
     cbar = plt.colorbar(contour, ax=ax)
     cbar.set_label('w/W_in', rotation=270, labelpad=20)
@@ -204,7 +220,7 @@ def plot_temperature_profile(theta, r_grid, z_positions, z_grid, theta_analytica
     if theta_analytical is not None:
         theta_analytical_values = theta_analytical(r_grid, z_fd)
         ax.plot(r_grid, theta_analytical_values, 'k--', linewidth=2,
-                label=f'z/D = {z_fd:.1f}')
+            label=f'Analytical profile at z/D = {z_fd:.1f}')
 
     ax.set_xlabel('r/D')
     ax.set_ylabel('(T-T_in)·ρ·W_in·c_v/q_w')

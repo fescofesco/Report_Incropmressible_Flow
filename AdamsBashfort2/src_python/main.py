@@ -139,7 +139,8 @@ def main():
     u_cc = u_to_cell_centre(u)    # (n_r, n_z)
 
     # ---- Plot 1: axial velocity contour -------------------------------------
-    ax = plot_velocity_contour_axial(w_cc, r_c, z_c)
+    ax = plot_velocity_contour_axial(w_cc, r_c, z_c, u_star=u_cc,
+                                     title='Axial velocity w/W_in and velocity vectors')
     ax.get_figure().savefig(os.path.join(PLOTS_DIR, 'w_contour.png'), dpi=150, bbox_inches='tight')
     plt.close('all')
     print("  Saved w_contour.png")

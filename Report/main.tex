@@ -103,6 +103,27 @@
 \newpage
 
 % ============================================================================
+% STATEMENT ON THE USE OF AI TOOLS
+% ============================================================================
+\section*{Statement on the Use of AI Tools}
+\addcontentsline{toc}{section}{Statement on the Use of AI Tools}
+
+AI-based tools (an LLM coding assistant, Claude) were used while preparing both the MATLAB
+solver and this report: for drafting and debugging portions of the MATLAB code, for typesetting
+and organising sections of the report and several of its schematic figures, and for wording and
+proofreading assistance.
+
+Every governing equation, discretisation choice, boundary condition, and numerical result
+presented here was worked through, checked, and is understood by the author. The AI tool was
+used as an implementation and editing aid -- to speed up typing, catch mistakes, and keep the
+document consistent -- not as a substitute for the underlying engineering judgement: the
+derivation of the equations, the finite-volume discretisation and projection method, the choice
+of numerical schemes, and the interpretation of the results were all reasoned through and can be
+explained and defended independently of the tool, as required at the individual oral assessment.
+
+\newpage
+
+% ============================================================================
 % 1. PROBLEM DESCRIPTION
 % ============================================================================
 \section{Problem Description}
@@ -151,9 +172,13 @@ For axisymmetric flow in cylindrical coordinates $(r, z)$ with velocity componen
 \subsubsection{Continuity Equation}
 
 \begin{equation}
-    \frac{1}{r}\parder{(r\,u)}{r} + \parder{w}{z} = 0
+    \underbrace{\frac{1}{r}\parder{(r\,u)}{r}}_{\text{radial mass-flux divergence}}
+    + \underbrace{\parder{w}{z}}_{\text{axial mass-flux divergence}} = 0
     \label{eq:continuity_dim}
 \end{equation}
+The $1/r$ weighting on the radial term accounts for the circumferential area
+$2\pi r$ growing with radius; the two terms summing to zero enforces
+incompressibility (no net accumulation of mass in any control volume).
 
 \subsubsection{Momentum Equations}
 
@@ -173,21 +198,42 @@ For axisymmetric flow in cylindrical coordinates $(r, z)$ with velocity componen
     \label{eq:momentum_z_dim}
 \end{equation}
 
-where the stress tensor components for a Newtonian fluid are:
+Term by term, each momentum equation reads (local rate of change) + (convection)
+= (pressure force) + (viscous force):
+\begin{itemize}
+    \item $\parder{u}{t}$, $\parder{w}{t}$ --- \textbf{local (unsteady) acceleration}: the rate of
+          change of momentum stored in a fixed control volume.
+    \item $\frac{1}{r}\parder{(r\,u^2)}{r}$, $\parder{(u\,w)}{z}$ (and the analogous axial terms)
+          --- \textbf{convective transport}: momentum carried in and out of the control volume by
+          the flow itself (advection by $u$ and $w$).
+    \item $-\frac{1}{\rho}\parder{p}{r}$, $-\frac{1}{\rho}\parder{p}{z}$ --- \textbf{pressure-gradient
+          force} per unit mass, the driving force pushing fluid from high to low pressure.
+    \item $\frac{1}{\rho}\big[\frac1r\parder{(r\tau_{rr})}{r}+\parder{\tau_{rz}}{z}\big]$ and the
+          axial counterpart --- \textbf{viscous (diffusive) force} per unit mass, the net effect
+          of internal friction spreading momentum from fast- to slow-moving fluid.
+    \item $-\dfrac{\tau_{\varphi\varphi}}{\rho r}$ --- a \textbf{curvature (``hoop-stress'') term}
+          unique to cylindrical coordinates: it arises because the circumferential stress
+          $\tau_{\varphi\varphi}$ acts on a surface whose area changes with $r$; there is no
+          Cartesian analogue.
+\end{itemize}
+
+The stress tensor components for a Newtonian fluid are:
 \begin{equation}
-    \tau_{rr} = 2\mu\parder{u}{r}, \quad
-    \tau_{\varphi\varphi} = 2\mu\frac{u}{r}, \quad
-    \tau_{zz} = 2\mu\parder{w}{z}, \quad
-    \tau_{rz} = \mu\left(\parder{u}{z} + \parder{w}{r}\right)
+    \underbrace{\tau_{rr} = 2\mu\parder{u}{r}}_{\text{radial normal stress}}, \quad
+    \underbrace{\tau_{\varphi\varphi} = 2\mu\frac{u}{r}}_{\text{hoop (circumferential) normal stress}}, \quad
+    \underbrace{\tau_{zz} = 2\mu\parder{w}{z}}_{\text{axial normal stress}}, \quad
+    \underbrace{\tau_{rz} = \mu\left(\parder{u}{z} + \parder{w}{r}\right)}_{\text{shear stress}}
 \end{equation}
 
 \subsubsection{Energy Equation}
 
 \begin{equation}
-    \parder{T}{t} + \frac{1}{r}\parder{(r\,u\,T)}{r} + \parder{(w\,T)}{z}
-    = \frac{\lambda}{\rho c_v}\left[\frac{1}{r}\parder{}{r}\!\left(r\parder{T}{r}\right) + \pparder{T}{z}\right]
+    \underbrace{\parder{T}{t}}_{\text{local rate of change}}
+    + \underbrace{\frac{1}{r}\parder{(r\,u\,T)}{r} + \parder{(w\,T)}{z}}_{\text{convective transport of heat by the flow}}
+    = \underbrace{\frac{\lambda}{\rho c_v}\left[\frac{1}{r}\parder{}{r}\!\left(r\parder{T}{r}\right) + \pparder{T}{z}\right]}_{\text{conductive (diffusive) transport, Fourier's law}}
     \label{eq:energy_dim}
 \end{equation}
+Viscous dissipation (heat generated by internal friction) is neglected, per the problem statement.
 
 \subsection{Boundary Conditions}
 
@@ -460,6 +506,24 @@ extrapolation term is dropped.
 
 Diffusive terms retain standard \textbf{second-order central differencing}.
 
+\paragraph{Why these reconstructions are second order.} Expand $\phi$ in a Taylor series about
+the face location $x_f$ (face between cells $i$ and $i{+}1$, spacing $\Delta x$, upwind case
+$v_{\text{face}}>0$): with $x_i = x_f-\tfrac12\Delta x$ and $x_{i-1}=x_f-\tfrac32\Delta x$,
+\begin{equation}
+    \phi_i = \phi_f - \tfrac12\Delta x\,\phi_f' + \tfrac18\Delta x^2\phi_f'' + \mathcal{O}(\Delta x^3),
+    \qquad
+    \phi_{i-1} = \phi_f - \tfrac32\Delta x\,\phi_f' + \tfrac98\Delta x^2\phi_f'' + \mathcal{O}(\Delta x^3).
+\end{equation}
+Plain 1st-order upwind ($\phi_{\text{face}}=\phi_i$) retains the $-\tfrac12\Delta x\,\phi_f'$ term
+and is therefore only $\mathcal{O}(\Delta x)$ accurate. Forming the linear-upwind combination
+$\tfrac32\phi_i-\tfrac12\phi_{i-1}$ cancels the $\phi_f'$ term \emph{exactly}
+($-\tfrac32\cdot\tfrac12\Delta x+\tfrac12\cdot\tfrac32\Delta x=0$), leaving
+$\phi_{\text{face}}=\phi_f-\tfrac38\Delta x^2\phi_f''+\mathcal{O}(\Delta x^3)$: the leading error is
+$\mathcal{O}(\Delta x^2)$, confirming LUD is second order. The central-difference diffusion
+operator is second order by the same mechanism applied symmetrically: expanding $\phi_{i\pm1}$
+about $x_i$ and summing, the odd-order ($\Delta x$, $\Delta x^3$) terms cancel by symmetry,
+leaving $(\phi_{i+1}-2\phi_i+\phi_{i-1})/\Delta x^2 = \phi_i''+\tfrac{1}{12}\Delta x^2\phi_i''''+\mathcal{O}(\Delta x^4)$.
+
 \subsubsection{Temperature equation and cell-by-cell development}
 
 The temperature variable $\theta_{i,j}$ is stored at the centre of every scalar control
@@ -531,6 +595,28 @@ operator $F$, the update is
 The first step uses forward Euler because $F^{n-1}$ is not yet available. The
 current momentum and temperature RHS arrays are stored for the following step.
 AB2 needs one RHS evaluation and one pressure-Poisson solve per time step.
+
+\paragraph{Why AB2 is second order.} Forward Euler, $\phi^{n+1}=\phi^n+\Delta t\,F^n$, freezes the
+right-hand side at its value at $t^n$ and so approximates the average slope over $[t^n,t^{n+1}]$
+with $\mathcal{O}(\Delta t)$ error, giving local truncation error $\mathcal{O}(\Delta t^2)$ per
+step and global error $\mathcal{O}(\Delta t)$. AB2 instead linearly extrapolates the two most
+recent slopes. Expanding $F^{n-1}=F(t^n-\Delta t) = F^n-\Delta t\,\dot F^n+\tfrac12\Delta t^2\ddot
+F^n+\mathcal{O}(\Delta t^3)$,
+\begin{equation}
+    \tfrac32 F^n-\tfrac12 F^{n-1}
+    = F^n+\tfrac12\Delta t\,\dot F^n-\tfrac14\Delta t^2\ddot F^n+\mathcal{O}(\Delta t^3),
+\end{equation}
+which matches the true average slope on $[t^n,t^{n+1}]$, $F^n+\tfrac12\Delta t\,\dot F^n
++\mathcal{O}(\Delta t^2)$, through the $\mathcal{O}(\Delta t)$ term: the leading error in the
+slope estimate is pushed from $\mathcal{O}(\Delta t^0)$ (Euler) to $\mathcal{O}(\Delta t^2)$.
+Multiplying by $\Delta t$ in the update gives local truncation error $\mathcal{O}(\Delta t^3)$
+per step; accumulating over the $N=\mathcal{O}(1/\Delta t)$ steps needed to reach a fixed final
+time gives global error $\mathcal{O}(\Delta t^2)$, i.e.\ AB2 is second order. Because the
+pressure-Poisson equation is solved directly (Section~\ref{sec:poisson_solver}, no
+iterative truncation) at every step, it introduces no additional error beyond machine precision;
+combined with the $\mathcal{O}(\Delta x^2)$ spatial operators above, the overall scheme is
+therefore second order in \emph{both} space and time, as the assignment requires.
+
 The temperature equation uses the same AB2 extrapolation of its
 convection--diffusion operator.
 
@@ -580,6 +666,7 @@ A segregated approach is used. Each time step consists of:
 \end{enumerate}
 
 \subsection{Poisson Solver}
+\label{sec:poisson_solver}
 
 The Poisson equation~\eqref{eq:poisson} is assembled into a sparse linear system $\mathbf{A}\,\mathbf{p}' = \mathbf{b}$ of size $(n_r \cdot n_z) \times (n_r \cdot n_z)$.
 The matrix~$\mathbf{A}$ is assembled once and reused every time step.
@@ -776,8 +863,8 @@ For constant wall heat flux in fully developed thermal flow:
 This form follows from direct integration of the non-dimensional energy
 equation~\eqref{eq:energy_nd} in the fully developed regime (Section~\ref{sec:nusselt-check}),
 subject to the wall condition $\lambda\,\partial T/\partial r|_{\text{wall}}=q_w$ and the global
-energy balance $\theta_{\text{bulk}}(z^*) = 4z^*$; see
-\texttt{Report/nusselt\_number\_analysis.md} for the full derivation and literature sources.
+energy balance $\theta_{\text{bulk}}(z^*) = 4z^*$; see Section~\ref{sec:nusselt-check} for the
+full derivation and literature sources.
 
 The thermal entry length is $L_t \approx 0.05\,\Rey\,\Pran\,D = 25D$.
 
@@ -888,11 +975,40 @@ radial coefficients $(2r^*)^2-\tfrac14(2r^*)^4-\tfrac34$ yields
 $\theta_{\text{wall}}-\theta_{\text{bulk}} = \tfrac{11}{24}\,\Rey\Pran$ and hence
 $\text{Nu}=24/11\approx2.18$ --- exactly half of $48/11$, and inconsistent both with this
 classical result and with the assignment's own stated wall condition (that literal profile has
-wall gradient $2\,\Rey\Pran$, and its bulk temperature is not $4z^*$). The converged CFD
-solution at $t^*=139.728$ gives $\text{Nu}\approx4.4\text{--}4.6$ over $z^*=20\text{--}40$, approaching
-$48/11$ where the thermal field has had the most settling time. The full derivation, the literature
-sources, and the empirical table are collected in
-\texttt{Report/nusselt\_number\_analysis.md}.
+wall gradient $2\,\Rey\Pran$, and its bulk temperature is not $4z^*$).
+
+\paragraph{Empirical check against the CFD solution.} The solver imposes the physically
+consistent wall condition $\partial\theta/\partial r^*=\Rey\Pran$. Computing the flow-weighted
+bulk temperature from the converged field ($t^*=139.728$) and forming
+$\text{Nu}=\Rey\Pran/(\theta_{\text{wall}}-\theta_{\text{bulk}})$ at three downstream stations:
+
+\begin{center}
+\begin{tabular}{cccccc}
+\toprule
+$z^*$ & settling margin $t^*-z^*$ & $\theta_{\text{bulk}}$ (CFD) & $4z^*$ (expected) & $\text{Nu}$ (CFD) & classical $48/11$ \\
+\midrule
+29.9 & 30.1 & 119.43 & 119.6 & 4.585 & 4.364 \\
+39.9 & 20.1 & 155.82 & 159.6 & 4.727 & 4.364 \\
+48.9 & 11.1 & 181.79 & 195.6 & 5.048 & 4.364 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+The global balance $\theta_{\text{bulk}}\approx4z^*$ holds to $\sim\!1\%$ at $z^*=29.9$ (largest
+settling margin), and the CFD $\text{Nu}$ is within $\sim\!5\%$ of $48/11$ there, degrading
+toward the outlet exactly as expected from progressively less settling time (thermal diffusion
+across the radius has non-dimensional timescale $\sim\Rey\Pran R^{*2}\approx125$, comparable to
+the simulated horizon). This is a model-free confirmation, built only from the governing PDE and
+the wall BC, that the physical answer is near $48/11$ and not near the $2.18$ implied by the
+assignment-literal coefficients.
+
+\paragraph{Why the solver can never reproduce $24/11$.} The energy equation, the wall BC, and the
+inlet condition $\theta_{\text{in}}=0$ are all \emph{linear} in $\theta$, and $\text{Nu}$ in
+\eqref{eq:nusselt} is normalised by the wall flux. Multiplying the imposed wall flux by any
+constant $k$ simply scales the entire $\theta$ field by $k$, leaving $\text{Nu}$ unchanged at
+$48/11$. A CFD run therefore cannot reproduce $24/11$: that number exists only as a property of
+the internally inconsistent literal formula, never of a correctly posed simulation
+\cite{ShahLondon1978,Incropera,KaysCrawford,BirdStewartLightfoot}.
 
 \newpage
 
@@ -974,10 +1090,10 @@ fully-developed temperature profile remains a separate asymptotic reference for 
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.95\textwidth]{../AdamsBashfort2/Plots_matlab/w_contour.png}
-    \caption{Axial velocity contour $w/W_{\text{in}}$ with all cell-centre velocity vectors.
-             The flow transitions from a uniform inlet profile ($w=1$) to a parabolic profile
-             ($w_{\max}=2$ at centreline); the arrows show the axial and radial components of
-             the velocity field at every plotted cell centre.}
+    \caption{Axial velocity contour $w/W_{\text{in}}$ with velocity vectors throughout the
+             domain. The flow transitions from a uniform inlet profile ($w=1$) to a parabolic
+             profile ($w_{\max}=2$ at centreline); the arrows show the axial and radial
+             components of the velocity field at regularly spaced cell centres.}
     \label{fig:w_contour}
 \end{figure}
 
@@ -1169,6 +1285,13 @@ W.~M. Kays, M.~E. Crawford, and B.~Weigand,
 \emph{Convective Heat and Mass Transfer},
 McGraw-Hill, New York.
 (Fully developed laminar circular-tube flow, constant heat rate per unit length:
+$\text{Nu} = 48/11$.)
+
+\bibitem{BirdStewartLightfoot}
+R.~B. Bird, W.~E. Stewart, and E.~N. Lightfoot,
+\emph{Transport Phenomena},
+Wiley, New York.
+(The same fully developed constant-wall-flux tube problem is worked out and yields
 $\text{Nu} = 48/11$.)
 
 \end{thebibliography}
