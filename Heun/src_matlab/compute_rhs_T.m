@@ -8,7 +8,7 @@ function rhs = compute_rhs_T(T, u, w, r_c, r_f, dr, dz, Re, Pr)
 %   scheme -- see upwind2_face.m. Diffusive terms use standard 2nd-order
 %   central differencing.
 %
-%   Wall BC: dtheta/dr* = +Re*Pr (see Report/nusselt_number_analysis.md
+%   Wall BC: dtheta/dr* = +Re*Pr (see report, Appendix B,
 %   for the derivation -- NOT -1, which drops the Re*Pr factor from the
 %   non-dimensionalization).
 %   Implemented as a ghost cell: theta_ghost(n_r+1,:) = theta(n_r,:) + dr*Re*Pr

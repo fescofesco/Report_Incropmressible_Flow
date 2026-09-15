@@ -12,6 +12,7 @@
 \usepackage{hyperref}
 \usepackage{siunitx}
 \usepackage{booktabs}
+\usepackage{array}
 \usepackage{bm}
 \usepackage{pdfpages}
 \usepackage{tikz}
@@ -475,36 +476,72 @@ After applying Gauss' divergence theorem, the volume integrals become surface fl
 
 \subsubsection{Convective Scheme: 2nd-Order Upwind (Linear Upwind Differencing)}
 
-Central differencing requires the cell Peclet number $\text{Pe} = |v|\,\Delta x / (\nu_{\text{eff}})$ to satisfy $\text{Pe} < 2$.
-For our grid:
+\paragraph{What an upwind scheme is.} In the finite volume method the transported quantity
+$\phi$ ($w$, $u$ or $\theta$) is stored at cell centres, but the convective flux
+$F=v\,\phi$ has to be evaluated at the cell \emph{faces}, which lie between two centres. The
+face value $\phi_{\text{face}}$ must therefore be interpolated from neighbouring cells, and the
+choice of this interpolation is the convective scheme.
+
+The obvious choice is \textbf{central differencing}, the average of the two neighbours,
+\begin{equation}
+    \phi_{\text{face}} = \tfrac12\left(\phi_i + \phi_{i+1}\right).
+\end{equation}
+It is second-order accurate but treats both sides of the face equally. Convection, however, is
+directional: information is carried \emph{with} the flow, so the value arriving at a face comes
+from the upstream side. When convection dominates diffusion, central differencing produces
+non-physical oscillations (over- and undershoots). The governing parameter is the cell Peclet
+number, the ratio of convective to diffusive transport across one cell,
+\begin{equation}
+    \text{Pe} = \frac{|v|\,\Delta x}{\nu_{\text{eff}}},
+\end{equation}
+and central differencing only remains bounded for $\text{Pe} < 2$. For our grid
+($\Delta z = 0.2$, $\Delta r = 0.01$), based on the mean axial velocity $|w|=1$,
 \begin{equation}
     \text{Pe}_z = |w|\,\Delta z\,\Rey = 1 \times 0.2 \times 100 = 20 \gg 2
 \end{equation}
-(and $\text{Pe}_\theta = |w|\,\Delta z\,\Rey\Pran = 100$ for the energy equation, even higher).
+and $\text{Pe}_\theta = |w|\,\Delta z\,\Rey\Pran = 100$ for the energy equation. On the
+centreline, where $w\approx2$, these values double to $40$ and $200$. Pure central differencing
+is therefore unsuitable for the convective terms of this problem.
 
-Pure central differencing is therefore prone to non-physical oscillations at these cell Peclet
-numbers. We use \textbf{2nd-order upwind (linear-upwind / LUD) differencing} for convective
-terms: at each face, the transported quantity is linearly extrapolated from the two cells on
-the \textit{upwind} side of the face, based on the sign of the transporting velocity. On a
-uniform grid and for a smooth solution, this face reconstruction has a truncation error of
-$\mathcal{O}(\Delta x^2)$, so the convective discretization is formally second-order accurate,
-as required by the assignment. This is an accuracy statement, not a boundedness guarantee:
-because the extrapolated face value is not limited, LUD can overshoot or undershoot near sharp
-transients, boundaries, or insufficiently resolved gradients. Thus the scheme is second-order
-in smooth regions but is not monotone or TVD everywhere.
-
-For a generic flux $F = v\,\phi$ at the face between cells $i$ and $i+1$:
+\textbf{Upwind schemes} instead take the face value from the side the flow comes from, as
+decided by the sign of the transporting velocity at the face:
+\begin{itemize}
+    \item \textbf{1st-order upwind}: $\phi_{\text{face}}=\phi_i$ if $v_{\text{face}}>0$ (flow
+          from cell $i$ towards $i+1$), otherwise $\phi_{\text{face}}=\phi_{i+1}$. It is very
+          robust and does not oscillate, but it is only first-order accurate and introduces
+          artificial (numerical) diffusion that smears gradients.
+    \item \textbf{2nd-order upwind (linear upwind differencing, LUD)}, used in this work: the
+          face value is linearly extrapolated from the \emph{two} upstream cells.
+\end{itemize}
+For a generic flux $F = v\,\phi$ at the face between cells $i$ and $i+1$, LUD reads
 \begin{equation}
     \phi_{\text{face}} =
     \begin{cases}
-        \tfrac{3}{2}\phi_i - \tfrac{1}{2}\phi_{i-1} & \text{if } v_{\text{face}} > 0 \\[4pt]
+        \tfrac{3}{2}\phi_i - \tfrac{1}{2}\phi_{i-1} & \text{if } v_{\text{face}} > 0
+            \quad\text{(upstream = low-index side)} \\[4pt]
         \tfrac{3}{2}\phi_{i+1} - \tfrac{1}{2}\phi_{i+2} & \text{if } v_{\text{face}} < 0
+            \quad\text{(upstream = high-index side)}
     \end{cases}
+    \label{eq:lud}
 \end{equation}
-which reduces to the classic 1st-order upwind value ($\phi_i$ or $\phi_{i+1}$) if the linear
-extrapolation term is dropped.
+which reduces to the 1st-order upwind value ($\phi_i$ or $\phi_{i+1}$) if the linear
+extrapolation term is dropped. Equation~\eqref{eq:lud} is implemented in
+\texttt{upwind2\_face.m} (Listing~\ref{lst:upwind2}) and is called by all three right-hand-side
+functions \texttt{compute\_rhs\_w.m}, \texttt{compute\_rhs\_u.m} and \texttt{compute\_rhs\_T.m}.
+LUD keeps the upstream bias needed for stability at $\text{Pe}\gg2$, while on a uniform grid and
+for a smooth solution its truncation error is $\mathcal{O}(\Delta x^2)$ (shown below), so the
+convective discretization is formally second-order accurate, as required by the assignment.
+Diffusive terms retain standard \textbf{second-order central differencing}, since diffusion has
+no preferred direction.
 
-Diffusive terms retain standard \textbf{second-order central differencing}.
+\paragraph{Trade-off: LUD is not bounded.} Second-order accuracy is not a boundedness guarantee.
+Because the extrapolated face value is not limited, LUD can overshoot or undershoot near sharp
+transients, boundaries, or insufficiently resolved gradients; the scheme is second-order in
+smooth regions but is not monotone or TVD everywhere. In the present simulation this appears
+only as a small, localized, transient undershoot of $\theta$ near the inlet--wall corner during
+the first time steps (Fig.~\ref{fig:T_profiles}); on coarser grids the undershoot would be
+larger. Bounded alternatives are TVD schemes with flux limiters (e.g.\ minmod or van Leer),
+which blend LUD with 1st-order upwind wherever the solution gradient is steep.
 
 \paragraph{Why these reconstructions are second order.} Expand $\phi$ in a Taylor series about
 the face location $x_f$ (face between cells $i$ and $i{+}1$, spacing $\Delta x$, upwind case
@@ -706,7 +743,7 @@ The wall temperature ghost cell $\theta_g = \theta_{n_r} + \Delta r\cdot\Rey\Pra
 \begin{equation}
     \parder{\theta}{r}\bigg|_{\text{wall}} \approx \frac{\theta_g - \theta_{n_r}}{\Delta r} = \frac{\Delta r\cdot\Rey\Pran}{\Delta r} = \Rey\Pran
 \end{equation}
-An earlier version of this derivation incorrectly dropped the $\Rey\Pran$ factor (giving $\partial\theta/\partial r = -1$); see \texttt{Report/temperature\_formula\_review.md} for the full re-derivation and cross-checks.
+An earlier version of this derivation incorrectly dropped the $\Rey\Pran$ factor (giving $\partial\theta/\partial r = -1$). The full re-derivation and cross-checks are included in Appendix~\ref{app:nusselt}.
 
 \newpage
 
@@ -978,29 +1015,45 @@ classical result and with the assignment's own stated wall condition (that liter
 wall gradient $2\,\Rey\Pran$, and its bulk temperature is not $4z^*$).
 
 \paragraph{Empirical check against the CFD solution.} The solver imposes the physically
-consistent wall condition $\partial\theta/\partial r^*=\Rey\Pran$. Computing the flow-weighted
-bulk temperature from the converged field ($t^*=139.728$) and forming
-$\text{Nu}=\Rey\Pran/(\theta_{\text{wall}}-\theta_{\text{bulk}})$ at three downstream stations:
+consistent wall condition $\partial\theta/\partial r^*=\Rey\Pran$. From the converged field
+($t^*=139.728$, $R_\theta<10^{-6}$) the flow-weighted bulk temperature is evaluated at three
+downstream stations as
+\begin{equation}
+    \theta_{\text{bulk}} = \frac{\sum_i w_{i}\,\theta_{i}\,r_{c,i}}{\sum_i w_{i}\,r_{c,i}},
+\end{equation}
+with $w_i$ interpolated to the cell centres. The wall temperature is taken at the wall face,
+consistent with the ghost-cell boundary condition,
+$\theta_{\text{wall}} = \theta_{n_r} + \tfrac12\Delta r\,\Rey\Pran$, and
+$\text{Nu}=\Rey\Pran/(\theta_{\text{wall}}-\theta_{\text{bulk}})$. The analytical fully developed
+values are $\theta_{\text{wall}}-\theta_{\text{bulk}}=\tfrac{11}{48}\Rey\Pran=114.58$ and
+$\text{Nu}=48/11=4.364$.
 
 \begin{center}
 \begin{tabular}{cccccc}
 \toprule
-$z^*$ & settling margin $t^*-z^*$ & $\theta_{\text{bulk}}$ (CFD) & $4z^*$ (expected) & $\text{Nu}$ (CFD) & classical $48/11$ \\
+$z^*$ & $\theta_{\text{bulk}}$ (CFD) & $4z^*$ (expected) & $\theta_{\text{wall}}-\theta_{\text{bulk}}$ & $\text{Nu}$ (CFD) & deviation from $48/11$ \\
 \midrule
-29.9 & 30.1 & 119.43 & 119.6 & 4.585 & 4.364 \\
-39.9 & 20.1 & 155.82 & 159.6 & 4.727 & 4.364 \\
-48.9 & 11.1 & 181.79 & 195.6 & 5.048 & 4.364 \\
+29.9 & 119.59 & 119.6 & 112.22 & 4.455 & $+2.1\%$ \\
+39.9 & 159.59 & 159.6 & 113.72 & 4.397 & $+0.8\%$ \\
+48.9 & 195.59 & 195.6 & 114.22 & 4.378 & $+0.3\%$ \\
 \bottomrule
 \end{tabular}
 \end{center}
 
-The global balance $\theta_{\text{bulk}}\approx4z^*$ holds to $\sim\!1\%$ at $z^*=29.9$ (largest
-settling margin), and the CFD $\text{Nu}$ is within $\sim\!5\%$ of $48/11$ there, degrading
-toward the outlet exactly as expected from progressively less settling time (thermal diffusion
-across the radius has non-dimensional timescale $\sim\Rey\Pran R^{*2}\approx125$, comparable to
-the simulated horizon). This is a model-free confirmation, built only from the governing PDE and
-the wall BC, that the physical answer is near $48/11$ and not near the $2.18$ implied by the
-assignment-literal coefficients.
+The global energy balance $\theta_{\text{bulk}}=4z^*$ is satisfied to $0.01\%$ at all three
+stations, as required for a converged steady field. The CFD Nusselt number decreases
+monotonically along the pipe and approaches $48/11$ from above, reaching $+0.3\%$ at
+$z^*=48.9$. This is the expected thermal entrance-region behaviour: in the region shortly
+after the thermal entry length $L_t\approx25D$ the heated layer near the wall is still thinner
+than in the fully developed state, so the wall-to-bulk temperature difference is smaller and
+$\text{Nu}$ is higher. (Evaluating $\theta_{\text{wall}}$ at the last cell centre instead of the
+wall face would bias $\theta_{\text{wall}}-\theta_{\text{bulk}}$ low by
+$\tfrac12\Delta r\,\Rey\Pran=2.5$ and give $\text{Nu}=4.48$ at $z^*=48.9$. An earlier,
+unconverged snapshot at $t^*=60$ gave $\theta_{\text{bulk}}$ up to $7\%$ below $4z^*$ near the
+outlet, which shows that the full thermal convergence, beyond the radial diffusion timescale
+$\sim\Rey\Pran R^{*2}\approx125$, is needed for this comparison.) This is a model-free
+confirmation, built only from the governing PDE and the wall BC, that the physical answer is
+$48/11$ and not the $2.18$ implied by the assignment-literal coefficients.
 
 \paragraph{Why the solver can never reproduce $24/11$.} The energy equation, the wall BC, and the
 inlet condition $\theta_{\text{in}}=0$ are all \emph{linear} in $\theta$, and $\text{Nu}$ in
@@ -1182,9 +1235,9 @@ The numerical results reproduce the expected physics:
 \begin{itemize}
     \item The velocity field develops from a uniform inlet profile to the parabolic Hagen--Poiseuille profile within the hydrodynamic entry length. At $z^*=50$ the numerical and analytical
           Hagen--Poiseuille profiles agree to within $\mathcal{O}(10^{-4})$ (Fig.~\ref{fig:w_comparison}) -- the velocity field is essentially fully converged and validated.
-    \item The temperature field shows the characteristic linear rise of the bulk temperature along the pipe axis ($\theta_{\text{bulk}}\approx4z^*$, confirmed to within $\sim$1\% at $z^*=29.9$; see
+    \item The temperature field shows the characteristic linear rise of the bulk temperature along the pipe axis ($\theta_{\text{bulk}}=4z^*$, confirmed to within $0.01\%$ at $z^*=29.9$, $39.9$ and $48.9$; see
           Section~\ref{sec:nusselt-check}) and a radial profile that approaches the analytical fully-developed solution as $z^*$ increases (Fig.~\ref{fig:T_profiles}), as expected since that solution
-          is only valid asymptotically. Agreement is closest where the flow has had the most settling time; at smaller $z^*$ the difference is primarily the thermal entrance-region shape, while the final field satisfies the temporal convergence criterion.
+          is only valid asymptotically. The local Nusselt number decreases along the pipe towards $48/11$ and is within $0.3\%$ of it at $z^*=48.9$; at smaller $z^*$ the difference is primarily the thermal entrance-region shape, while the final field satisfies the temporal convergence criterion.
 \end{itemize}
 
 \newpage
@@ -1206,7 +1259,350 @@ The numerical results reproduce the expected physics:
 \newpage
 
 % ============================================================================
-% APPENDIX B: MATLAB SOURCE CODE
+% APPENDIX B: TEMPERATURE FORMULA AND NUSSELT NUMBER AUDIT
+% ============================================================================
+\section{Temperature Formula and Nusselt Number Audit}
+\label{app:nusselt}
+
+This appendix derives from first principles why the fully developed Nusselt number for the
+present problem is exactly $\text{Nu}=48/11\approx4.3636$, and shows which Nusselt number each of
+the two candidate fully developed temperature profiles implies: the one printed on the assignment
+sheet and the corrected one used throughout this report and the code.
+
+All quantities are non-dimensional in the scaling of the assignment:
+\begin{equation}
+    r^*=\frac{r}{D},\quad
+    z^*=\frac{z}{D},\quad
+    w^*=\frac{w}{W_{\text{in}}},\quad
+    \theta=\frac{(T-T_{\text{in}})\rho c_v W_{\text{in}}}{q_w},\quad
+    \Rey=\frac{\rho W_{\text{in}}D}{\mu}=100,\quad
+    \Pran=\frac{\mu c_v}{\lambda}=5 .
+\end{equation}
+It is convenient to introduce
+\begin{equation}
+    s \equiv 2r^* = \frac{2r}{D}\in[0,1],
+\end{equation}
+so that the centreline is at $s=0$ and the pipe wall at $s=1$.
+
+\subsection{The Two Candidate Fully Developed Profiles}
+
+Both candidates have the form
+\begin{equation}
+    \theta(r^*,z^*) = 4z^* + \Rey\Pran\,B(s),
+\end{equation}
+and differ only in the radial bracket $B(s)$:
+\begin{align}
+    B_{\text{corr}}(s) &= \tfrac12 s^2 - \tfrac18 s^4 - \tfrac{7}{48}
+        &&\text{(corrected, used in report and code)},\\
+    B_{\text{lit}}(s)  &= s^2 - \tfrac14 s^4 - \tfrac34
+        &&\text{(assignment-literal)}.
+\end{align}
+The corrected bracket is implemented in \texttt{analytical\_temperature.m}
+(Listing~\ref{lst:anatemp}) and is Eq.~\eqref{eq:analytical_temperature} of the report.
+
+\subsection{Governing Equation and Axial Gradient}
+
+For hydrodynamically and thermally fully developed axisymmetric flow ($u^*=0$, the \emph{shape}
+of the profile no longer changes with $z^*$), with viscous dissipation and axial conduction
+neglected, the non-dimensional energy equation reduces to
+\begin{equation}
+    w^*(r^*)\,\parder{\theta}{z^*}
+      =
+      \frac{1}{\Rey\Pran}\,
+      \frac{1}{r^*}\parder{}{r^*}
+      \left(r^*\parder{\theta}{r^*}\right).
+    \label{eq:app_fd_energy}
+\end{equation}
+A global energy balance over a pipe slice fixes the axial gradient. The wall adds heat at the
+non-dimensional rate $\partial\theta/\partial r^*|_{\text{wall}}=\Rey\Pran$ per unit wall area
+(Eq.~\eqref{eq:app_wall_gradient}), and the enthalpy flux carried by the flow is
+$\int w^*\theta\,\mathrm{d}A$. With $\langle w^*\rangle=1$ (the parabolic profile carries the same
+mean velocity as the uniform inlet), the bulk (mixing-cup) temperature
+\begin{equation}
+    \theta_{\text{bulk}} \equiv
+    \frac{\int w^*\theta\,\mathrm{d}A}{\int w^*\,\mathrm{d}A}
+\end{equation}
+satisfies
+\begin{equation}
+    \frac{\mathrm{d}\theta_{\text{bulk}}}{\mathrm{d}z^*} = 4
+    \qquad\Longrightarrow\qquad
+    \theta_{\text{bulk}}(z^*) = 4z^*
+    \label{eq:app_bulk}
+\end{equation}
+exactly, at every $z^*$. This is energy conservation from the inlet and is independent of the
+radial profile shape. In the fully developed region the whole profile translates uniformly in
+$z^*$, so
+\begin{equation}
+    \parder{\theta}{z^*} = \frac{\mathrm{d}\theta_{\text{bulk}}}{\mathrm{d}z^*} = 4
+\end{equation}
+everywhere in the cross-section.
+
+\subsection{Velocity Profile and Wall Boundary Condition}
+
+The Hagen--Poiseuille profile (Eq.~\eqref{eq:analytical_velocity}) is
+\begin{equation}
+    w^*(r^*) = 2\left[1-(2r^*)^2\right] = 2\,(1-s^2).
+    \label{eq:app_velocity}
+\end{equation}
+Fourier's law at the heated wall,
+\begin{equation}
+    \lambda \parder{T}{r}\bigg|_{\text{wall}} = q_w ,
+\end{equation}
+non-dimensionalises directly:
+\begin{equation}
+    \parder{\theta}{r^*}\bigg|_{\text{wall}}
+    =
+    D\,\frac{\rho c_v W_{\text{in}}}{q_w}\,
+    \parder{T}{r}\bigg|_{\text{wall}}
+    =
+    D\,\frac{\rho c_v W_{\text{in}}}{q_w}\cdot\frac{q_w}{\lambda}
+    =
+    \frac{\rho c_v W_{\text{in}}D}{\lambda}
+    =
+    \Rey\Pran .
+    \label{eq:app_wall_gradient}
+\end{equation}
+Numerically $\Rey\Pran=500$ here, not an order-one value: the reference length and temperature
+scales do not cancel. The symmetry condition at the axis is
+\begin{equation}
+    \parder{\theta}{r^*}\bigg|_{r^*=0} = 0 .
+\end{equation}
+
+\subsection{Integration of the Radial Equation}
+
+Inserting Eqs.~\eqref{eq:app_bulk} and~\eqref{eq:app_velocity} into
+Eq.~\eqref{eq:app_fd_energy} gives
+\begin{equation}
+    \frac{1}{r^*}\frac{\mathrm{d}}{\mathrm{d}r^*}
+    \left(r^*\frac{\mathrm{d}\theta}{\mathrm{d}r^*}\right)
+    =
+    \Rey\Pran\cdot4\cdot w^*(r^*)
+    =
+    8\Rey\Pran\left(1-4r^{*2}\right).
+\end{equation}
+Integrating once and applying regularity ($r^*\,\mathrm{d}\theta/\mathrm{d}r^*\to0$ as
+$r^*\to0$),
+\begin{align}
+    r^*\frac{\mathrm{d}\theta}{\mathrm{d}r^*}
+    &= 8\Rey\Pran\left(\frac{r^{*2}}{2}-r^{*4}\right),\\
+    \frac{\mathrm{d}\theta}{\mathrm{d}r^*}
+    &= 8\Rey\Pran\,r^*\left(\frac12-r^{*2}\right).
+    \label{eq:app_first_integral}
+\end{align}
+At the wall, $r^*=\tfrac12$,
+\begin{equation}
+    \frac{\mathrm{d}\theta}{\mathrm{d}r^*}\bigg|_{r^*=1/2}
+    = 8\Rey\Pran\cdot\frac12\cdot\left(\frac12-\frac14\right)
+    = \Rey\Pran ,
+\end{equation}
+which matches the wall condition~\eqref{eq:app_wall_gradient}. Integrating a second time,
+\begin{equation}
+    \theta(r^*,z^*)
+    = 2\Rey\Pran\left(r^{*2}-r^{*4}\right) + C(z^*)
+    = \Rey\Pran\left(\frac12 s^2-\frac18 s^4\right) + C(z^*),
+    \qquad s=2r^* .
+    \label{eq:app_second_integral}
+\end{equation}
+
+\subsection{Integration Constant from the Global Energy Balance}
+
+Write $C(z^*)=4z^*+\Rey\Pran\,c$ with $c$ a pure constant. The energy balance
+$\theta_{\text{bulk}}=4z^*$ (Eq.~\eqref{eq:app_bulk}) requires the flow-weighted mean of the
+radial bracket to vanish:
+\begin{equation}
+    \left\langle \frac12 s^2-\frac18 s^4 + c \right\rangle_w = 0,
+    \qquad
+    \langle f\rangle_w \equiv
+    \frac{\int_0^{1/2} f\,w^*r^*\,\mathrm{d}r^*}{\int_0^{1/2} w^*r^*\,\mathrm{d}r^*}.
+\end{equation}
+With $r^*=s/2$ and Eq.~\eqref{eq:app_velocity},
+\begin{equation}
+    w^*r^*\,\mathrm{d}r^* = \frac12\,s\,(1-s^2)\,\mathrm{d}s,
+    \qquad
+    \int_0^1 \frac12\,s\,(1-s^2)\,\mathrm{d}s = \frac18 ,
+\end{equation}
+so that
+\begin{equation}
+    \left\langle \frac12 s^2-\frac18 s^4 \right\rangle_w
+    = 8\int_0^1\left(\frac12 s^2-\frac18 s^4\right)\frac12\,s\,(1-s^2)\,\mathrm{d}s
+    = 8\cdot\frac{7}{384}
+    = \frac{7}{48}.
+\end{equation}
+Hence $c=-7/48$, and the corrected fully developed profile is
+\begin{equation}
+    \theta(r^*,z^*) =
+    4z^* + \Rey\Pran\left[\frac{1}{2}(2r^*)^2
+    - \frac{1}{8}(2r^*)^4 - \frac{7}{48}\right].
+    \label{eq:app_corrected_temperature}
+\end{equation}
+Naively halving the assignment's constant $-\tfrac34$ would give $-\tfrac38$, which is wrong: the
+constant must be re-derived from the energy balance and equals $-\tfrac{7}{48}$.
+
+\subsection{Nusselt Number of the Corrected Profile}
+
+The Nusselt number is $\text{Nu}=hD/\lambda$ with
+$h=q_w/(T_{\text{wall}}-T_{\text{bulk}})$. Non-dimensionalising the wall-to-bulk temperature
+difference,
+\begin{equation}
+    T_{\text{wall}}-T_{\text{bulk}}
+    = \left(\theta_{\text{wall}}-\theta_{\text{bulk}}\right)
+      \frac{q_w}{\rho c_v W_{\text{in}}},
+\end{equation}
+gives
+\begin{equation}
+    \text{Nu} =
+    \frac{q_w D}{\lambda\left(T_{\text{wall}}-T_{\text{bulk}}\right)}
+    =
+    \frac{\rho c_v W_{\text{in}}D/\lambda}{\theta_{\text{wall}}-\theta_{\text{bulk}}}
+    =
+    \frac{\Rey\Pran}{\theta_{\text{wall}}-\theta_{\text{bulk}}}.
+    \label{eq:app_nusselt_def}
+\end{equation}
+From Eq.~\eqref{eq:app_corrected_temperature}, the bracket at the wall ($s=1$) is
+\begin{equation}
+    B_{\text{corr}}(1) = \frac12-\frac18-\frac{7}{48}
+    = \frac{24}{48}-\frac{6}{48}-\frac{7}{48}
+    = \frac{11}{48},
+\end{equation}
+while $\theta_{\text{bulk}}$ corresponds to a bracket value of $0$. Therefore
+\begin{equation}
+    \theta_{\text{wall}}-\theta_{\text{bulk}}
+    = \frac{11}{48}\Rey\Pran,
+    \qquad
+    \text{Nu} = \frac{\Rey\Pran}{(11/48)\Rey\Pran} = \frac{48}{11} \approx 4.3636 .
+    \label{eq:app_nusselt_corr}
+\end{equation}
+
+\subsection{Why the Value is Exactly 48/11}
+
+Equations~\eqref{eq:app_fd_energy}--\eqref{eq:app_wall_gradient} form a linear two-point
+boundary-value problem with fixed coefficients and no free parameters. Given only
+\begin{itemize}
+    \item hydrodynamically \emph{and} thermally fully developed flow,
+    \item constant wall heat flux (the H1 thermal boundary condition),
+    \item laminar flow with the parabolic velocity profile~\eqref{eq:app_velocity},
+    \item constant fluid properties,
+    \item negligible axial conduction and viscous dissipation,
+\end{itemize}
+the radial profile~\eqref{eq:app_corrected_temperature} and the ratio~\eqref{eq:app_nusselt_corr}
+are completely determined. $\Rey$, $\Pran$, $q_w$, $D$, the fluid properties and the numerical
+grid all cancel out of $\text{Nu}$: they rescale $\theta$ but not the dimensionless ratio
+$(\theta_{\text{wall}}-\theta_{\text{bulk}})/(\Rey\Pran)$. The value $48/11$ is a rational number
+obtained by integration, not an empirical correlation, and it is the classical result for this
+configuration \cite{ShahLondon1978,Incropera,KaysCrawford,BirdStewartLightfoot}. For contrast, a
+constant wall \emph{temperature} gives the different value $\text{Nu}\approx3.66$ (from the first
+eigenvalue of the Graetz problem); $48/11$ is specifically the constant-heat-flux value relevant
+to this assignment.
+
+\subsection{Assignment-Literal Profile: Nu = 24/11}
+
+Taking the printed bracket $B_{\text{lit}}(s)=s^2-\tfrac14s^4-\tfrac34$ at face value:
+
+\paragraph{Wall value.}
+\begin{equation}
+    B_{\text{lit}}(1) = 1-\frac14-\frac34 = 0
+    \qquad\Longrightarrow\qquad
+    \theta_{\text{wall}} = 4z^* .
+\end{equation}
+
+\paragraph{Bulk value.} With the same flow-weighted average,
+\begin{align}
+    \left\langle s^2-\frac14 s^4 \right\rangle_w
+    &= 8\int_0^1\left(s^2-\frac14 s^4\right)\frac12\,s\,(1-s^2)\,\mathrm{d}s
+     = 8\cdot\frac{7}{192} = \frac{7}{24},\\
+    \left\langle B_{\text{lit}} \right\rangle_w
+    &= \frac{7}{24}-\frac34 = \frac{7}{24}-\frac{18}{24} = -\frac{11}{24}.
+\end{align}
+The literal formula therefore gives
+\begin{equation}
+    \theta_{\text{bulk,lit}} = 4z^* - \frac{11}{24}\Rey\Pran \neq 4z^*,
+\end{equation}
+i.e.\ it violates the global energy balance~\eqref{eq:app_bulk}, a second, independent symptom of
+the same defect.
+
+\paragraph{Nusselt number.} From Eq.~\eqref{eq:app_nusselt_def},
+\begin{align}
+    \theta_{\text{wall}}-\theta_{\text{bulk}}
+    &= 0-\left(-\frac{11}{24}\Rey\Pran\right) = \frac{11}{24}\Rey\Pran,\\
+    \text{Nu}_{\text{lit}} &= \frac{\Rey\Pran}{(11/24)\Rey\Pran}
+    = \frac{24}{11} \approx 2.1818 = \frac12\cdot\frac{48}{11}.
+\end{align}
+
+\paragraph{Origin of the factor of two.} The literal radial coefficients are $(1,\tfrac14)$ where
+the integration~\eqref{eq:app_second_integral} gives $(\tfrac12,\tfrac18)$, each doubled.
+Equivalently, the wall slope of the literal profile is
+\begin{equation}
+    \frac{\mathrm{d}}{\mathrm{d}r^*}\left[\Rey\Pran\left(s^2-\frac14 s^4\right)\right]_{s=1}
+    = \Rey\Pran\left(4s-2s^3\right)\Big|_{s=1}
+    = 2\Rey\Pran ,
+\end{equation}
+twice the physical wall gradient $\Rey\Pran$ required by the assignment's own stated condition
+$\lambda\,\partial T/\partial r|_{\text{wall}}=q_w$ (Eq.~\eqref{eq:app_wall_gradient}). A wall
+gradient twice as steep produces a wall-to-bulk temperature difference twice as large and, since
+$\text{Nu}\propto1/(\theta_{\text{wall}}-\theta_{\text{bulk}})$, a Nusselt number half as large.
+
+\subsection{Summary}
+
+With $k\equiv\Rey\Pran$ ($=500$ for $\Rey=100$, $\Pran=5$),
+Table~\ref{tab:app_temperature_formula_audit} compares the two profiles. The empirical
+cross-check against the converged CFD solution is given in Section~\ref{sec:nusselt-check}.
+
+\begin{table}[H]
+\centering
+\caption{Consistency of the corrected and assignment-literal fully developed temperature profiles, $k=\Rey\Pran$.}
+\label{tab:app_temperature_formula_audit}
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{>{\raggedright\arraybackslash}p{4.6cm}>{\raggedright\arraybackslash}p{4.8cm}>{\raggedright\arraybackslash}p{4.8cm}}
+\toprule
+\textbf{Quantity} & \textbf{Corrected profile} & \textbf{Assignment-literal profile} \\
+\midrule
+Radial bracket $B(s)$, $s=2r^*$ &
+$\frac12s^2-\frac18s^4-\frac{7}{48}$ &
+$s^2-\frac14s^4-\frac34$ \\
+Wall gradient $\partial\theta/\partial r^*|_{r^*=1/2}$ &
+$k$ &
+$2k$ \\
+$B$ at the wall ($s=1$) &
+$\frac{11}{48}$ &
+$0$ \\
+Flow-weighted mean $\langle B\rangle_w$ &
+$0$ &
+$-\frac{11}{24}$ \\
+$\theta_{\text{bulk}}$ &
+$4z^*$ &
+$4z^*-\frac{11}{24}k$ \\
+$\theta_{\text{wall}}-\theta_{\text{bulk}}$ &
+$\frac{11}{48}k$ &
+$\frac{11}{24}k$ \\
+Analytical Nusselt number &
+$48/11\approx4.3636$ &
+$24/11\approx2.1818$ \\
+Energy balance $\theta_{\text{bulk}}=4z^*$ &
+Satisfied &
+Violated \\
+Agreement with theory &
+Matches \cite{ShahLondon1978,Incropera} exactly &
+Half the textbook value; inconsistent with the stated wall BC \\
+$\text{Nu}$ from CFD (Section~\ref{sec:nusselt-check}) &
+$4.455$ ($z^*=29.9$) to $4.378$ ($z^*=48.9$), i.e.\ within $0.3\%$ of $48/11$ at the outlet &
+Not attainable (linear problem, flux-normalised Nu) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Thus the assignment-literal coefficients are not an alternative physical solution; they are a
+transcription with the radial terms doubled, equivalently missing the factor $\tfrac12$ on
+$\Rey\Pran$, and with $-\tfrac34$ in place of the energy-balance constant $-\tfrac{7}{48}$.
+Because the temperature equation, the wall boundary condition and the inlet condition
+$\theta_{\text{in}}=0$ are linear in $\theta$, multiplying the imposed wall heat flux by any
+constant $k'$ only scales the whole temperature field, $\theta\to k'\theta$. The flux-normalised
+Nusselt number~\eqref{eq:app_nusselt_def} therefore remains $48/11$ for the correctly posed
+problem, and no simulation can reproduce $24/11$.
+
+\newpage
+
+% ============================================================================
+% APPENDIX C: MATLAB SOURCE CODE
 % ============================================================================
 \section{MATLAB Source Code}
 \label{app:code}

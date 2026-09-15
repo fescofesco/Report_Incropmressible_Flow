@@ -9,7 +9,7 @@ function T = apply_bc_T(T)
 %   inlet/outlet faces, so clamping them directly would over-constrain
 %   the PDE and is inconsistent with the ghost-cell treatment used
 %   everywhere else (see compute_rhs_T.m and
-%   Report/nusselt_number_analysis.md for the wall BC derivation).
+%   Appendix B of the report for the wall BC derivation).
 %
 %   Wall heat flux BC (dtheta/dr = +Re*Pr) is likewise handled entirely
 %   via ghost cells inside compute_rhs_T.m.

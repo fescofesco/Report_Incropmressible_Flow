@@ -99,7 +99,7 @@ This is the approved form (direct integration of the non-dimensional energy
 equation; constant −7/48 from the global energy balance, so θ_bulk = 4z* for all
 z ≥ 0; gives Nu = 48/11). An earlier transcription of the assignment omitted the
 ½ factor on the radial terms and used −¾; that form is not used anywhere in the
-code. Full derivation and sources: `Report/nusselt_number_analysis.md`.
+code. Full derivation and sources: Appendix B of `Report/main.pdf`.
 
 ## Code Philosophy
 

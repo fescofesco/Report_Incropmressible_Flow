@@ -147,7 +147,7 @@ NOTE: the original assignment PDF printed this with the radial coefficients doub
 transcription error (it gives Nu = 24/11 instead of the classical 48/11 and violates
 theta_bulk = 4z*). The corrected form above is the one used everywhere in this repo;
 `Assignemnt/Assignment_WS25.pdf` is the corrected transcription, `Assignment_WS25_error.pdf`
-the original. See `Report/nusselt_number_analysis.md` for the full derivation.
+the original. See Appendix B of `Report/main.pdf` for the full derivation.
 
 ---
 

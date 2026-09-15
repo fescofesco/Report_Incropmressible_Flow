@@ -5,7 +5,7 @@ function theta_an = analytical_temperature(r_star, z_star, Re, Pr)
 %   Obtained by direct integration of the non-dimensional energy equation with
 %   the wall condition dtheta/dr* = Re*Pr; the constant -7/48 follows from the
 %   exact global energy balance (theta_bulk = 4*z* for all z* >= 0). Gives
-%   Nu = 48/11. Full derivation and sources: Report/nusselt_number_analysis.md.
+%   Nu = 48/11. Full derivation and sources: report, Appendix B.
 %   (An earlier transcription of the assignment omitted the 1/2 factor on the
 %   radial terms and used -3/4; that form is not used anywhere in this codebase.)
 

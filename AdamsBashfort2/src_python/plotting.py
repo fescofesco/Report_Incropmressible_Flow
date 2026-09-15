@@ -197,7 +197,7 @@ def plot_temperature_profile(theta, r_grid, z_positions, z_grid, theta_analytica
         (see analytical.py::calculate_analytical_temperature). Only plotted ONCE, at
         the last (largest) z_position -- that formula is the fully-developed
         asymptote and is not a valid prediction at the smaller z_positions (it can
-        extrapolate to negative theta there; see Report/nusselt_number_analysis.md).
+        extrapolate to negative theta there; see report Appendix B).
 
     Returns:
     --------

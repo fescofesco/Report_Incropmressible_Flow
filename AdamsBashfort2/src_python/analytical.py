@@ -49,7 +49,7 @@ def calculate_analytical_temperature(r_grid, z, Re, Pr, D=1.0):
     assignment printed the radial terms without the factor 1/2 and with -3/4 instead
     of -7/48 (that form gives Nu = 24/11 and violates θ_bulk = 4z*); it is not used
     anywhere in this codebase. Full derivation and sources:
-    Report/nusselt_number_analysis.md.
+    report Appendix B (Temperature Formula and Nusselt Number Audit).
 
     Caveat (inherent, not a bug): the radial *shape* of this profile is only valid
     once the flow is thermally fully developed (z* beyond ~25); the *level*
@@ -111,7 +111,7 @@ def calculate_analytical_temperature_nondim(r_star, z_star, Re, Pr):
 
     Profile: θ = 4*z* + Re*Pr*[(1/2)*(2*r*)² - (1/8)*(2*r*)⁴ - 7/48]
     (see calculate_analytical_temperature for the derivation and
-    Report/nusselt_number_analysis.md for the full analysis)
+    report Appendix B (Temperature Formula and Nusselt Number Audit) for the full analysis)
 
     Parameters:
     -----------

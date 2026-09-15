@@ -33,4 +33,4 @@ this configuration) and violates `θ_bulk = 4z/D`.
 
 Full derivation, the residual caveat (the analytical *radial shape* is only valid past the
 thermal entry length `z ≳ 25D`; the *level* is always right), and literature sources are in
-[`../Report/nusselt_number_analysis.md`](../Report/nusselt_number_analysis.md).
+Appendix B (Temperature Formula and Nusselt Number Audit) of the report (`Report/main.pdf`).

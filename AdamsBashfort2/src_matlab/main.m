@@ -181,7 +181,7 @@ for k = 1:length(z_plot)
     plot(r_c, T(:, jj), '-o', 'MarkerSize', 3, 'DisplayName', sprintf('z*=%.0f', z_plot(k)));
 end
 % Analytical fully-developed profile at z*=50 (approved form; see
-% Report/nusselt_number_analysis.md)
+% report, Appendix B)
 [~, j_Tfd] = min(abs(z_c - z_plot(end)));
 z_Tfd = z_c(j_Tfd);
 theta_an = analytical_temperature(r_c, z_Tfd, Re, Pr);

@@ -24,7 +24,7 @@ Wall BC:  ∂θ/∂r*|_{r*=0.5} = +Re·Pr
           θ=(T-T_in)ρc_vW_in/q_w:
               ∂θ/∂r* = D·(ρc_vW_in/q_w)·∂T/∂r = ρc_vW_inD/λ = Re·Pr
           (NOT ±1 — that earlier value dropped the Re·Pr factor from
-          the non-dimensionalization; see Report/nusselt_number_analysis.md)
+          the non-dimensionalization; see report Appendix B)
           Implemented as a ghost cell:  θ_ghost[n_r, j] = θ[n_r-1, j] + dr·Re·Pr  (Neumann)
 Axis BC:  ∂θ/∂r|_{r*=0}   = 0
           Ghost: θ_ghost[-1, j] = θ[0, j]

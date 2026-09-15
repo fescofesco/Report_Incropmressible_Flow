@@ -130,7 +130,7 @@ where θ = (T - T<sub>in</sub>)ρW<sub>in</sub>c<sub>v</sub>/q<sub>w</sub>
 Note: the assignment sheet states this with the radial-term coefficients doubled
 ((2r/D)² - ¼(2r/D)⁴ - ¾). The halved coefficients above are used in the code, based
 on independent re-derivation and empirical validation against the CFD solution —
-see `temperature_formula_review.md`.
+see Appendix B of `main.pdf`.
 
 ## Notes
 

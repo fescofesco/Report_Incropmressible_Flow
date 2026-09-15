@@ -11,8 +11,8 @@
       only that the analytical *radial shape* is not valid inside the thermal entry length
       (`z* ≲ 25`) — inherent to any fully-developed reference, not fixable. Full derivation,
       literature sources (Shah & London 1978; Incropera & DeWitt; Kays & Crawford), and the
-      arithmetic for both candidate profiles are in `Report/nusselt_number_analysis.md`
-      (`Report/temperature_formula_review.md` is now a pointer to it). New report subsection
+      arithmetic for both candidate profiles are in Appendix B of `Report/main.pdf`
+      (Temperature Formula and Nusselt Number Audit). New report subsection
       `Validity of the Fully-Developed Temperature Profile` (`\label{sec:fd-validity}`)
       explains bulk-level-exact vs. shape-only-asymptotic. `.tex` files carry no instructor
       attribution — the correction is presented as a from-first-principles derivation.
@@ -51,14 +51,14 @@
 
 ## Done
 
-- [x] **Wrote `Report/nusselt_number_analysis.md`** — standalone, submission-quality: the
+- [x] **Wrote the Nusselt number analysis (now Appendix B of `Report/main.pdf`)**: the
       from-first-principles derivation that constant-wall-heat-flux fully-developed laminar
       pipe flow has `Nu = 48/11` exactly (linear BVP, no free parameters), literature sources
       (Shah & London 1978; Incropera & DeWitt; Kays & Crawford), the full derivation that the
       assignment-literal coefficients instead give `Nu = 24/11` (= ½·48/11, and violates
       `θ_bulk = 4z*`), the wall-slope contrast (`Re·Pr` vs `2·Re·Pr`), and the empirical
-      CFD table. Arithmetic verified numerically + symbolically. `temperature_formula_review.md`
-      reduced to a pointer. Expanded the Nusselt subsection (with derivation + `\cite`s +
+      CFD table. Arithmetic verified numerically + symbolically. The former standalone
+      Markdown notes were merged into the report appendix and deleted. Expanded the Nusselt subsection (with derivation + `\cite`s +
       a new `thebibliography`) in `Report/main.tex` and `Report/All_derivations.tex`; both
       recompile clean (main.pdf 49 pp, All_derivations.pdf 40 pp, no undefined refs/cites).
 - [x] Fix wall temperature BC (`+Re·Pr` instead of `-1`) in Python and MATLAB.
@@ -125,7 +125,7 @@
       `README.md`, `Report/README.md`, `src_python/analytical.py` docstrings, and
       `Report/All_derivations.tex` (wall BC sign/magnitude, temperature formula
       coefficients, centreline `u` BC wording). Report recompiles cleanly.
-- [x] Fixed `Report/temperature_formula_review.md` section E, which had mixed up
+- [x] Fixed the empirical Nu check (former temperature-formula note), which had mixed up
       wall-to-*center* and wall-to-*bulk* temperature differences (Nu is defined via
       the flow-weighted bulk/mixing-cup average, not centerline) AND checked a
       z-position (`z*=44.9`) the thermal front hadn't convectively reached yet given
@@ -137,8 +137,15 @@
       `theta_bulk` via the flow-weighted average at three z-positions with decreasing
       settling margin (`t*-z*`). Global energy balance (`theta_bulk=4z*`) holds to ~1%
       at `z*=29.9` (best margin), and `Nu` is within ~5% of 48/11 there, degrading
-      toward the outlet as expected. `Report/temperature_formula_review.md` section E
-      and `Report/main.tex` updated with the corrected numbers.
+      toward the outlet as expected. `Report/main.tex` (Section 5.4) updated with the
+      corrected numbers.
+- [x] **Recomputed the empirical Nu check from the converged field** (`t*=139.728`,
+      step 69,864, `R_T<1e-6`). The `t*=60` table had been left in the report after the run
+      was extended. Re-running reproduced the old values at `t*=60` (they used θ at the last
+      cell centre as θ_wall), so the new table uses the wall-face value
+      `θ_nr + ½·dr·Re·Pr` instead. Converged: `θ_bulk = 4z*` to 0.01 % at `z*=29.9/39.9/48.9`;
+      Nu = 4.455 / 4.397 / 4.378, decreasing toward 48/11 (+0.3 % at the outlet), as expected
+      for thermal entrance-region behaviour.
 - [x] **Corrected the temperature-convergence reasoning.** The earlier claim ("R_T can't
       reach tolerance because θ keeps rising with z at steady state") is simply wrong — a
       steady field can have `dθ/dz≠0` while `dθ/dt=0`; spatial gradient does not prevent
@@ -169,7 +176,7 @@
       The approved assignment now contains the corrected profile, so both Python and MATLAB
       plot that single approved fully-developed curve at the last actual scalar location
       (`z*=49.9`) against the numerical solution. The historical discrepancy remains documented
-      in `Report/temperature_formula_review.md`.
+      in Appendix B of `Report/main.pdf`.
 
 ## Still open
 
