@@ -7,7 +7,7 @@ from solver_temperature import compute_rhs_T
 
 
 def ab2_step(u, w, p, T, rhs_previous, r_c, r_f, dr, dz, dt, Re, Pr,
-             n_r, n_z, A_poisson, alpha_p):
+             n_r, n_z, poisson_fac, alpha_p):
     """Advance one step; use Euler when the AB2 history is unavailable."""
     rhs_u = compute_rhs_u(u, w, r_c, r_f, dr, dz, Re)
     rhs_w = compute_rhs_w(w, u, r_c, r_f, dr, dz, Re)
@@ -33,7 +33,7 @@ def ab2_step(u, w, p, T, rhs_previous, r_c, r_f, dr, dz, dt, Re, Pr,
     apply_bc_w(w_star)
 
     p_prime = solve_poisson(
-        A_poisson, u_star, w_star, r_c, r_f, dr, dz, dt, n_r, n_z)
+        poisson_fac, u_star, w_star, r_c, r_f, dr, dz, dt, n_r, n_z)
     u_new, w_new = correct_velocity(
         u_star, w_star, p_prime, r_f, dr, dz, dt, n_r, n_z)
     apply_bc_u(u_new)

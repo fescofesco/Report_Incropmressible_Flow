@@ -392,7 +392,11 @@ Rearranging Eq.~\eqref{eq:cyl_uw_disc_poisson} to isolate $p'_{i,j}$:
     \item Converge when $\max|p'^{\text{new}}-p'^{\text{old}}|<\varepsilon$.
 \end{enumerate}
 
-\textbf{Direct solve:} assemble sparse $\mathbf{A}$ from Eq.~\eqref{eq:cyl_uw_disc_poisson} and call \texttt{spsolve}.
+\textbf{Direct solve (used in this work):} group the unknowns by axial station, so that the
+operator becomes block tridiagonal, and eliminate it with a block Thomas algorithm built on a
+hand-written LU kernel. The assignment asks for a direct method that is programmed, so no library
+solve (\texttt{spsolve}, MATLAB \texttt{A\textbackslash b}) is used; see Sec.~\ref{sec:poisson_solver}
+of the main report.
 Note: fix one pressure value (e.g.\ $p'_{1,N_z}=0$ at the outlet corner) to remove the null space.
 
 % ----------------------------------------------------------

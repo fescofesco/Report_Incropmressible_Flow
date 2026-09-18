@@ -7,6 +7,7 @@
 | `Assignment_WS25_error.pdf` | The **original** assignment PDF exactly as distributed, kept unchanged for reference. Its fully-developed temperature formula is wrong. |
 | `Assignment_WS25_blacked.pdf` | Original with personal data redacted (unchanged). |
 | `Guidel_lines_for_report.pdf` | Report formatting guidelines (unchanged). |
+| `NumMethods-WS2526-SecItoV.pdf` | **Lecture notes** for the course (H. Steiner, *Numerical Simulation and Modelling of Incompressible Flow*, WS 2025/26), Sections I--V. Sec. III.3.1 lists the four direct linear solvers ((A) Gauss elimination, (B) LU, (C) Thomas/TDMA, (D) Fourier); Sec. III.3.2 the iterative ones. Cited in the report's Poisson-solver section. |
 | `Derivations_assignment` | Scratch notes on the derivations to produce (unchanged). |
 
 ## The correction

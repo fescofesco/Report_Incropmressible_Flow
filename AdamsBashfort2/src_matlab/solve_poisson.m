@@ -1,11 +1,29 @@
-function p_prime = solve_poisson(A, u_star, w_star, r_c, r_f, dr, dz, dt, n_r, n_z)
-% SOLVE_POISSON  Solve A * p' = b for pressure correction.
+function p_prime = solve_poisson(P, u_star, w_star, r_c, r_f, dr, dz, dt, n_r, n_z)
+% SOLVE_POISSON  Solve  lap(p') = (1/dt)*div(u*)  for the pressure correction,
+%   by the block-Thomas sweeps prepared in FACTORIZE_POISSON.
 %
-%   p_prime = solve_poisson(A, u_star, w_star, r_c, r_f, dr, dz, dt, n_r, n_z)
+%   p_prime = solve_poisson(P, u_star, w_star, r_c, r_f, dr, dz, dt, n_r, n_z)
 %
-%   RHS: b(i,j) = (1/dt) * div(u*)
-%   Returns p_prime : (n_r, n_z)
+%   This is a DIRECT method, programmed here rather than delegated: no
+%   backslash, no decomposition(), no inv(). With the unknowns grouped by
+%   axial station, column j of the (n_r x n_z) field IS block j of the
+%   block-tridiagonal system, so no flattening or flat-index bookkeeping is
+%   needed anywhere.
+%
+%       forward :  y_j = inv(M_j)*(b_j - a_z*y_{j-1})
+%       back    :  p_j = y_j - a_z*inv(M_j)*p_{j+1}
+%
+%   Inputs:
+%     P       : struct from FACTORIZE_POISSON (built once, before the time loop)
+%     u_star  : (n_r+1 x n_z) predicted radial velocity
+%     w_star  : (n_r x n_z+1) predicted axial velocity
+%
+%   Output:
+%     p_prime : (n_r x n_z)
+%
+%   See also FACTORIZE_POISSON, LU_FACTOR, LU_SOLVE.
 
+    % ---- right-hand side:  b(i,j) = (1/dt)*div(u*) -------------------------
     rf_o = r_f(2:end);      % (n_r, 1)
     rf_i = r_f(1:end-1);    % (n_r, 1)
     rc   = r_c;             % (n_r, 1)
@@ -18,29 +36,24 @@ function p_prime = solve_poisson(A, u_star, w_star, r_c, r_f, dr, dz, dt, n_r, n
 
     b = (div_u + div_w) / dt;   % (n_r, n_z)
 
-    % Outlet row (j=n_z) has Dirichlet p'=0 -> RHS = 0
+    % Outlet column (j = n_z) has Dirichlet p' = 0 -> RHS = 0
     b(:, end) = 0.0;
 
-    % Flatten and solve
-    b_flat = b(:);              % column-major flatten (same as reshape(b, [], 1))
-    % MATLAB sparse direct solve (backslash)
-    % Note: MATLAB stores column-major, Python row-major. The flat index
-    % must match the matrix assembly order: k = (i-1)*n_z + j.
-    % Reshaping b column-major: b(:) goes column by column (j varies fastest
-    % for fixed i when b is (n_r, n_z)). But our matrix uses k=(i-1)*n_z+j,
-    % where j varies fastest for fixed i. This matches b(:) since MATLAB
-    % flattens column-major on (n_r, n_z) -> i varies fastest.
-    % We need to transpose to match: b' is (n_z, n_r), then b'(:) has
-    % j varying slowest... no. Let me be precise.
-    %
-    % Matrix assembly: k = (i-1)*n_z + j, so for i=1, j=1..n_z -> k=1..n_z.
-    % MATLAB b(:) for b of size (n_r, n_z) gives b(1,1), b(2,1), ..., b(n_r,1),
-    %   b(1,2), ..., i.e. i varies fastest. But we need j to vary fastest.
-    % Solution: transpose b before flattening.
-    b_flat = reshape(b', [], 1);   % b' is (n_z, n_r), flatten -> j varies fastest
+    % ---- forward sweep ------------------------------------------------------
+    Minv = P.Minv;
+    az   = P.az;
 
-    p_prime_flat = A \ b_flat;
+    y = zeros(n_r, n_z);
+    y(:, 1) = Minv(:, :, 1) * b(:, 1);
+    for j = 2:(n_z - 1)
+        y(:, j) = Minv(:, :, j) * (b(:, j) - az * y(:, j-1));
+    end
+    y(:, n_z) = b(:, n_z);      % Dirichlet row: M = I, no south coupling
 
-    % Reshape back: p_prime_flat has k=(i-1)*n_z+j ordering
-    p_prime = reshape(p_prime_flat, n_z, n_r)';   % (n_r, n_z)
+    % ---- back substitution --------------------------------------------------
+    p_prime = zeros(n_r, n_z);
+    p_prime(:, n_z) = y(:, n_z);
+    for j = (n_z - 1):-1:1
+        p_prime(:, j) = y(:, j) - az * (Minv(:, :, j) * p_prime(:, j+1));
+    end
 end

@@ -34,11 +34,19 @@ end
 [u, w, p, T] = initialise_fields(n_r, n_z);
 [u, w, T] = apply_all_bc(u, w, T);
 
-%% Build Poisson matrix (once)
-fprintf('\nAssembling Poisson matrix ...\n');
-A_poisson = build_poisson_matrix(r_c, r_f, dr, dz, n_r, n_z);
-fprintf('  Matrix size: %d x %d, nnz = %d\n', size(A_poisson,1), size(A_poisson,2), nnz(A_poisson));
-poisson_solver = decomposition(A_poisson, 'lu');
+%% Factorise the Poisson operator (once)
+% Hand-written DIRECT solver: block-Thomas elimination of the
+% block-tridiagonal pressure operator, built on our own dense LU kernel
+% (lu_factor.m / lu_solve.m). No MATLAB backslash, decomposition() or inv()
+% appears anywhere in the solve path -- backslash is used only inside
+% verify_poisson_solver.m, as an independent check. The operator is constant
+% in time, so it is factorised once here; each time step then costs only the
+% two sweeps in solve_poisson.m.
+fprintf('\nFactorising Poisson operator (block Thomas, direct) ...\n');
+t_fac = tic;
+poisson_fac = factorize_poisson(r_c, r_f, dr, dz, n_r, n_z);
+fprintf('  %d blocks of %d x %d  ->  %d unknowns  (%.2f s)\n', ...
+        n_z, n_r, n_r, n_r*n_z, toc(t_fac));
 
 %% History arrays
 hist_cont = zeros(n_steps, 1);
@@ -58,7 +66,7 @@ for step = 1:n_steps
     [u_new, w_new, p_new, T_new, rhs_u, rhs_w, rhs_T] = ...
         ab2_step(u, w, p, T, rhs_u_old, rhs_w_old, rhs_T_old, ...
                  r_c, r_f, dr, dz, dt, Re, Pr, n_r, n_z, ...
-                 poisson_solver, alpha_p);
+                 poisson_fac, alpha_p);
 
     % Convergence check
     res = compute_residuals(u_new, u, w_new, w, T_new, T, r_c, r_f, dr, dz, dt);
@@ -107,23 +115,49 @@ if ~exist(plots_dir, 'dir')
 end
 
 %% Plot 1: axial velocity contour
-figure('Visible', 'off');
+light_figure();
 contourf(z_c, r_c, w_cc, 20, 'LineStyle', 'none');
 hold on;
-% Display a decimated quiver layer so individual arrows remain readable.
-% The underlying contour still contains every cell; vectors use every 5th
-% axial and every 2nd radial cell centre.
-z_arrow = 1:5:length(z_c);
-r_arrow = 1:2:length(r_c);
-q = quiver(z_c(z_arrow), r_c(r_arrow), w_cc(r_arrow, z_arrow), ...
-           u_cc(r_arrow, z_arrow), 0.45, 'k', 'LineWidth', 0.5);
+% Decimated quiver layer so individual arrows stay readable; the underlying
+% contour still contains every cell.
+%
+% Two corrections are needed because the axes are stretched ~100:1
+% (z/D spans 50, r/D spans 0.5):
+%
+%  1. MATLAB scales quiver components in DATA units. A physically small
+%     radial velocity (u/w ~ 0.06 at most) then covers a large fraction of
+%     the short r-axis and the arrows render almost vertically, which is
+%     visually wrong for a flow that is almost entirely axial. Multiplying
+%     the radial component by the axis aspect ratio makes the arrow's
+%     *on-screen* angle equal to the true atan(u/w).
+%
+%  2. Arrowhead size is likewise measured in data units, so the default
+%     head puts wings tens of percent of the r-range wide -- they appear as
+%     long diagonal streaks across the plot. The head is therefore scaled
+%     down by the same aspect ratio.
+z_span = 50.0;
+r_span = 0.5;
+aspect = r_span / z_span;
+
+z_arrow = 1:8:length(z_c);
+r_arrow = 1:3:length(r_c);
+[Z_a, R_a] = meshgrid(z_c(z_arrow), r_c(r_arrow));
+
+arrow_len = 1.6;                              % z/D length of the fastest arrow
+a_scale = arrow_len / max(abs(w_cc(:)));
+
+q = quiver(Z_a, R_a, ...
+           w_cc(r_arrow, z_arrow) * a_scale, ...
+           u_cc(r_arrow, z_arrow) * a_scale * aspect, ...
+           0, 'k', 'LineWidth', 0.5);          % 0 -> autoscaling OFF
 q.Clipping = 'on';
-q.MaxHeadSize = 5.0;
+q.MaxHeadSize = 0.003;
 xlim([0, 50]);
 ylim([0, 0.5]);
-colorbar; xlabel('z/D'); ylabel('r/D');
+cb = colorbar; cb.Label.String = 'w/W_{in}';
+xlabel('z/D'); ylabel('r/D');
 title('Axial velocity w/W_{in} and velocity vectors');
-saveas(gcf, fullfile(plots_dir, 'w_contour.png'));
+exportgraphics(gcf, fullfile(plots_dir, 'w_contour.png'), 'Resolution', 200);
 fprintf('  Saved w_contour.png\n');
 
 %% Plot 2: radial velocity contour
@@ -135,7 +169,7 @@ fprintf('  Saved w_contour.png\n');
 % colormap centred at zero with a robust (98th-percentile) symmetric
 % limit, so the near-zero bulk keeps visible contrast and the entrance
 % feature simply saturates the color scale rather than washing it out.
-figure('Visible', 'off');
+light_figure();
 u_abs_sorted = sort(abs(u_cc(:)));
 u_lim = u_abs_sorted(max(1, round(0.98 * numel(u_abs_sorted))));
 if u_lim <= 0
@@ -148,20 +182,20 @@ contourf(z_c, r_c, u_cc, linspace(-u_lim, u_lim, 21), 'LineStyle', 'none');
 clim([-u_lim, u_lim]);
 colorbar; colormap(gca, diverging_bwr(256)); xlabel('z/D'); ylabel('r/D');
 title('Radial velocity u/W_{in}');
-saveas(gcf, fullfile(plots_dir, 'u_contour.png'));
+exportgraphics(gcf, fullfile(plots_dir, 'u_contour.png'), 'Resolution', 200);
 fprintf('  Saved u_contour.png\n');
 
 %% Plot 3: temperature contour
-figure('Visible', 'off');
+light_figure();
 contourf(z_c, r_c, T, 20, 'LineStyle', 'none');
 colorbar; colormap(gca, 'hot'); xlabel('z/D'); ylabel('r/D');
 title('Non-dimensional temperature \theta');
-saveas(gcf, fullfile(plots_dir, 'theta_contour.png'));
+exportgraphics(gcf, fullfile(plots_dir, 'theta_contour.png'), 'Resolution', 200);
 fprintf('  Saved theta_contour.png\n');
 
 %% Plot 4: velocity profiles at selected z-positions
 z_plot = [5, 10, 20, 30, 40, 50];
-figure('Visible', 'off'); hold on;
+light_figure(); hold on;
 w_an = analytical_velocity(r_c);
 for k = 1:length(z_plot)
     [~, jj] = min(abs(z_c - z_plot(k)));
@@ -171,11 +205,11 @@ plot(r_c, w_an, 'k--', 'LineWidth', 1.5, 'DisplayName', 'Analytical');
 xlabel('r/D'); ylabel('w/W_{in}');
 title('Velocity profiles at selected z-positions');
 legend('Location', 'best'); grid on;
-saveas(gcf, fullfile(plots_dir, 'w_profiles.png'));
+exportgraphics(gcf, fullfile(plots_dir, 'w_profiles.png'), 'Resolution', 200);
 fprintf('  Saved w_profiles.png\n');
 
 %% Plot 5: temperature profiles
-figure('Visible', 'off'); hold on;
+light_figure(); hold on;
 for k = 1:length(z_plot)
     [~, jj] = min(abs(z_c - z_plot(k)));
     plot(r_c, T(:, jj), '-o', 'MarkerSize', 3, 'DisplayName', sprintf('z*=%.0f', z_plot(k)));
@@ -190,11 +224,11 @@ plot(r_c, theta_an, 'k--', 'LineWidth', 1.5, ...
 xlabel('r/D'); ylabel('\theta');
 title('Temperature profiles at selected z-positions');
 legend('Location', 'best'); grid on;
-saveas(gcf, fullfile(plots_dir, 'T_profiles.png'));
+exportgraphics(gcf, fullfile(plots_dir, 'T_profiles.png'), 'Resolution', 200);
 fprintf('  Saved T_profiles.png\n');
 
 %% Plot 6: convergence history
-figure('Visible', 'off');
+light_figure();
 semilogy(1:converged_step, hist_cont, 'b-', 'DisplayName', 'Continuity');
 hold on;
 semilogy(1:converged_step, hist_vel, 'r-', 'DisplayName', 'Momentum');
@@ -202,7 +236,7 @@ semilogy(1:converged_step, hist_temp, 'g-', 'DisplayName', 'Temperature');
 xlabel('Time step'); ylabel('Residual');
 title('Convergence history');
 legend('Location', 'best'); grid on;
-saveas(gcf, fullfile(plots_dir, 'convergence.png'));
+exportgraphics(gcf, fullfile(plots_dir, 'convergence.png'), 'Resolution', 200);
 fprintf('  Saved convergence.png\n');
 
 %% Plot 7: comparison with analytical at z*=50
@@ -210,7 +244,7 @@ fprintf('  Saved convergence.png\n');
 w_num = w_cc(:, j_fd);
 w_ana = analytical_velocity(r_c);
 
-figure('Visible', 'off');
+light_figure();
 subplot(2,1,1);
 plot(r_c, w_num, 'bo-', 'MarkerSize', 4, 'DisplayName', 'Numerical');
 hold on;
@@ -223,13 +257,18 @@ subplot(2,1,2);
 plot(r_c, abs(w_num - w_ana), 'k-', 'LineWidth', 1);
 xlabel('r/D'); ylabel('|Error|');
 title('Absolute error'); grid on;
-saveas(gcf, fullfile(plots_dir, 'w_comparison.png'));
+exportgraphics(gcf, fullfile(plots_dir, 'w_comparison.png'), 'Resolution', 200);
 fprintf('  Saved w_comparison.png\n');
 
 fprintf('\nAll plots saved to %s\n', plots_dir);
 
 %% Save final fields for offline inspection / diagnostics
-save(fullfile(plots_dir, '..', 'src_matlab', 'last_run.mat'), ...
+% Save next to THIS script. The path is derived from mfilename rather than
+% from plots_dir, because the containing folder is called src_matlab in the
+% development tree but matlab in the submission bundle -- hard-coding
+% '../src_matlab' made this line error out there, after the plots were
+% already written.
+save(fullfile(fileparts(mfilename('fullpath')), 'last_run.mat'), ...
      'u', 'w', 'p', 'T', 'u_cc', 'w_cc', 'r_c', 'z_c', 'hist_cont', 'hist_vel', 'hist_temp');
 
 close all;

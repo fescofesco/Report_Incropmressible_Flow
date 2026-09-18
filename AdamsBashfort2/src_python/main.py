@@ -18,7 +18,6 @@ import numpy as np
 import matplotlib
 matplotlib.use('Agg')   # non-interactive backend for saving figures
 import matplotlib.pyplot as plt
-import scipy.sparse.linalg as spla
 
 # Ensure src_python is on the path when running from repo root
 sys.path.insert(0, os.path.dirname(__file__))
@@ -28,7 +27,7 @@ from constants import (Re, Pr, n_r, n_z, dt, n_steps, output_interval,
 from grid import make_grid
 from initial_conditions import initialise_fields
 from boundary_conditions import apply_all_bc
-from solver_poisson import build_poisson_matrix
+from solver_poisson import factorize_poisson
 from time_integration import ab2_step
 from convergence import compute_residuals, check_convergence
 from analytical import (calculate_analytical_velocity_nondim,
@@ -86,11 +85,16 @@ def main():
     u, w, p, T = initialise_fields(n_r, n_z)
     apply_all_bc(u, w, T, dr, n_r, Re, Pr)
 
-    # ---- build Poisson matrix (once) ----------------------------------------
-    print("\nAssembling Poisson matrix ...")
-    A_poisson = build_poisson_matrix(r_c, r_f, dr, dz, n_r, n_z)
-    print(f"  Matrix size: {A_poisson.shape}, nnz={A_poisson.nnz}")
-    poisson_solve = spla.factorized(A_poisson.tocsc())
+    # ---- factorise the Poisson operator (once) ------------------------------
+    # Hand-written DIRECT solver: block-Thomas elimination of the
+    # block-tridiagonal pressure operator, built on our own dense LU kernel
+    # (solver_poisson.lu_factor / lu_solve). No library linear solve is used
+    # anywhere -- no scipy spsolve, no numpy.linalg.solve, no MATLAB
+    # backslash. The operator is constant in time, so it is factorised once
+    # here; only the two O(n_r^2 * n_z) sweeps run per time step.
+    print("\nFactorising Poisson operator (block Thomas, direct) ...")
+    poisson_fac = factorize_poisson(r_c, r_f, dr, dz, n_r, n_z)
+    print(f"  {n_z} blocks of {n_r} x {n_r}  ->  {n_r * n_z} unknowns")
 
     # ---- history arrays for convergence -------------------------------------
     hist = {'continuity': [], 'momentum': [], 'temperature': []}
@@ -103,7 +107,7 @@ def main():
         # ---- AB2 predictor + one incremental pressure correction ------------
         u_new, w_new, p_new, T_new, rhs_previous = ab2_step(
             u, w, p, T, rhs_previous, r_c, r_f, dr, dz, dt, Re, Pr,
-            n_r, n_z, poisson_solve, alpha_p)
+            n_r, n_z, poisson_fac, alpha_p)
 
         # ---- Convergence check ------------------------------------------------
         res = compute_residuals(u_new, u, w_new, w, T_new, T,

@@ -16,7 +16,7 @@
 \usepackage{bm}
 \usepackage{pdfpages}
 \usepackage{tikz}
-\usetikzlibrary{shapes.geometric, arrows.meta, positioning, fit, calc}
+\usetikzlibrary{shapes.geometric, arrows.meta, positioning, fit, calc, decorations.pathreplacing}
 \usepackage{listings}
 \usepackage{xcolor}
 
@@ -705,9 +705,296 @@ A segregated approach is used. Each time step consists of:
 \subsection{Poisson Solver}
 \label{sec:poisson_solver}
 
-The Poisson equation~\eqref{eq:poisson} is assembled into a sparse linear system $\mathbf{A}\,\mathbf{p}' = \mathbf{b}$ of size $(n_r \cdot n_z) \times (n_r \cdot n_z)$.
-The matrix~$\mathbf{A}$ is assembled once and reused every time step.
-It is solved using MATLAB's built-in \textbf{direct sparse solver} (backslash operator \texttt{A\textbackslash b}), which employs LU decomposition for the sparse system.
+The assignment requires a \emph{direct} solution method for the pressure Poisson equation, and requires it to be \emph{programmed} rather than delegated to a library routine.
+Accordingly no use is made of MATLAB's backslash operator (\texttt{A\textbackslash b}, i.e.\ the UMFPACK sparse LU), of \texttt{decomposition}, or of SciPy's \texttt{spsolve}: the elimination is written out in \texttt{lu\_factor.m}, \texttt{lu\_solve.m}, \texttt{factorize\_poisson.m} and \texttt{solve\_poisson.m}.
+Backslash appears in exactly one file in the whole repository, the verification script \texttt{verify\_poisson\_solver.m}, where it serves as an independent reference (Sec.~\ref{sec:poisson_verification}).
+
+In the terminology of the course notes~\cite{Steiner2025}, Sec.~III.3.1, the scheme used here
+combines two of the four direct solvers presented there: the Thomas algorithm (TDMA, method~(C)),
+in its block form, as the outer elimination, with an LU decomposition (method~(B)) as the kernel
+that factorises each block.
+The same section notes that the TDMA, although in itself a one-dimensional algorithm, ``is often
+used as sub-algorithm of other solving methods for multidimensional, i.e.\ non-tridiagonal,
+elliptic systems''~\cite{Steiner2025} --- which is precisely the role it plays here.
+The notes present the TDMA for a scalar tridiagonal matrix; the block form used here, in which
+the scalar entries are replaced by the $n_r \times n_r$ blocks of Eq.~\eqref{eq:poisson_blocktri},
+is the direct extension of that algorithm to the two-dimensional operator.
+The iterative alternatives of Sec.~III.3.2 (Gauss--Seidel, SOR, LSOR, ADISOR) are excluded by the
+assignment's requirement of a \emph{direct} method.
+
+\paragraph{Block structure.}
+Group the $n_r \cdot n_z = 12{,}500$ unknowns by axial station~$j$, so that column~$j$ of the field $p'$ forms one block $\mathbf{p}_j$ of length~$n_r$.
+The five-point stencil of Eq.~\eqref{eq:poisson} couples a cell only to its radial neighbours (same~$j$) and to $j \pm 1$, so the operator is \textbf{block tridiagonal} with $n_z = 250$ blocks of size $n_r \times n_r = 50 \times 50$:
+\begin{equation}
+    \mathbf{S}_j\,\mathbf{p}_{j-1} + \mathbf{D}_j\,\mathbf{p}_j + \mathbf{N}_j\,\mathbf{p}_{j+1} = \mathbf{b}_j,
+    \qquad j = 1,\dots,n_z ,
+    \label{eq:poisson_blocktri}
+\end{equation}
+with
+\begin{equation}
+    \mathbf{D}_j = \operatorname{tridiag}\!\big(w_i,\; -(e_i + w_i + 2a_z),\; e_i\big),
+    \qquad
+    \mathbf{S}_j = \mathbf{N}_j = a_z\,\mathbf{I} ,
+\end{equation}
+\begin{equation}
+    e_i = \frac{r_{i+\frac{1}{2}}}{r_i\,\Delta r^2},
+    \qquad
+    w_i = \frac{r_{i-\frac{1}{2}}}{r_i\,\Delta r^2},
+    \qquad
+    a_z = \frac{1}{\Delta z^2} .
+\end{equation}
+The boundary conditions enter as modifications of these coefficients rather than as extra equations:
+$e_{n_r} = 0$ (Neumann at the wall);
+$w_1 = 0$ automatically, because $r_{\frac{1}{2}} = 0$ (Neumann at the centreline);
+no south coupling at $j = 1$, so that diagonal carries $a_z$ once instead of twice (Neumann at the inlet);
+and $\mathbf{D}_{n_z} = \mathbf{I}$, $\mathbf{S}_{n_z} = \mathbf{N}_{n_z} = \mathbf{0}$ (Dirichlet reference at the outlet).
+Figure~\ref{fig:bt_structure} sketches this structure.
+
+\begin{figure}[H]
+\centering
+
+\begin{subfigure}{\textwidth}
+\centering
+\begin{tikzpicture}[every node/.style={font=\small}]
+
+    % ---- three axial stations, n_r cells each ----------------------------
+    \foreach \xo in {0, 1.7, 3.4} {
+        \foreach \yc in {0, 0.62, 1.24, 1.86, 2.48} {
+            \draw[gray] (\xo, \yc) rectangle ++(1.5, 0.62);
+        }
+    }
+    % highlight the middle station = one block
+    \foreach \yc in {0, 0.62, 1.24, 1.86, 2.48} {
+        \fill[orange!18] (1.7, \yc) rectangle ++(1.5, 0.62);
+        \draw[gray] (1.7, \yc) rectangle ++(1.5, 0.62);
+    }
+
+    % ---- the four stencil neighbours --------------------------------------
+    \fill[blue!12] (1.7, 1.86) rectangle ++(1.5, 0.62);   % i+1, same block
+    \fill[blue!12] (1.7, 0.62) rectangle ++(1.5, 0.62);   % i-1, same block
+    \fill[blue!12] (0.0, 1.24) rectangle ++(1.5, 0.62);   % j-1, block to the left
+    \fill[blue!12] (3.4, 1.24) rectangle ++(1.5, 0.62);   % j+1, block to the right
+    \foreach \p in {(1.7,1.86), (1.7,0.62), (0.0,1.24), (3.4,1.24)} {
+        \draw[gray] \p rectangle ++(1.5, 0.62);
+    }
+
+    % ---- the centre cell ---------------------------------------------------
+    \fill[blue!35] (1.7, 1.24) rectangle ++(1.5, 0.62);
+    \draw[black, thick] (1.7, 1.24) rectangle ++(1.5, 0.62);
+    \node at (2.45, 1.55) {$p'_{i,j}$};
+
+    % ---- stencil arrows, starting outside the centre cell ------------------
+    \draw[-Stealth, thick] (2.45, 1.92) -- (2.45, 2.11);
+    \draw[-Stealth, thick] (2.45, 1.18) -- (2.45, 0.99);
+    \draw[-Stealth, thick] (1.64, 1.55) -- (1.00, 1.55);
+    \draw[-Stealth, thick] (3.26, 1.55) -- (3.90, 1.55);
+
+    % ---- station labels ---------------------------------------------------
+    \node at (0.75, -0.32) {$j-1$};
+    \node at (2.45, -0.32) {$j$};
+    \node at (4.15, -0.32) {$j+1$};
+
+    % ---- axes -------------------------------------------------------------
+    \draw[-Stealth] (-0.55, 0) -- (-0.55, 3.1) node[left, midway] {$r$};
+    \draw[-Stealth] (0, -0.74) -- (4.9, -0.74) node[below, midway] {$z$};
+
+    % ---- brace: the block --------------------------------------------------
+    \draw[decorate, decoration={brace, amplitude=5pt}, thick]
+        (3.32, 3.18) -- (1.78, 3.18)
+        node[midway, above, yshift=4pt, align=center]
+        {block $\mathbf{p}_j$ \ ($n_r$ unknowns)};
+
+    % ---- explanation --------------------------------------------------------
+    \node[anchor=west, align=left, text width=6.1cm] at (5.35, 1.55)
+        {The five-point stencil reaches only the \emph{radial} neighbours
+         $i\pm1$, which lie in the \emph{same} block, and the \emph{axial}
+         neighbours $j\pm1$, which lie in the two \emph{adjacent} blocks.
+         No other block is touched, so the operator is block tridiagonal.};
+
+\end{tikzpicture}
+\caption{Grouping the unknowns by axial station. Column~$j$ of the $(n_r \times n_z)$ pressure-correction field is one block $\mathbf{p}_j$.}
+\label{fig:bt_grid}
+\end{subfigure}
+
+\vspace{1.4em}
+
+\begin{subfigure}{0.55\textwidth}
+\centering
+\begin{tikzpicture}[scale=0.95, every node/.style={font=\footnotesize}]
+    \def\b{1.15}
+    \tikzset{
+        dblk/.style={draw=black, fill=orange!25, minimum size=\b cm, inner sep=0pt},
+        oblk/.style={draw=black, fill=blue!18,  minimum size=\b cm, inner sep=0pt},
+        zblk/.style={minimum size=\b cm, inner sep=0pt}
+    }
+    \node[dblk] at (0*\b, 0*\b)  {$\mathbf{D}_1$};
+    \node[oblk] at (1*\b, 0*\b)  {$a_z\mathbf{I}$};
+
+    \node[oblk] at (0*\b, -1*\b) {$a_z\mathbf{I}$};
+    \node[dblk] at (1*\b, -1*\b) {$\mathbf{D}_2$};
+    \node[oblk] at (2*\b, -1*\b) {$a_z\mathbf{I}$};
+
+    \node[oblk] at (1*\b, -2*\b) {$a_z\mathbf{I}$};
+    \node[dblk] at (2*\b, -2*\b) {$\ddots$};
+    \node[oblk] at (3*\b, -2*\b) {$a_z\mathbf{I}$};
+
+    \node[zblk] at (2*\b, -3*\b) {$\mathbf{0}$};
+    \node[dblk] at (3*\b, -3*\b) {$\mathbf{I}$};
+
+    \node[zblk] at (3*\b, 0*\b)  {$\mathbf{0}$};
+    \node[zblk] at (0*\b, -3*\b) {$\mathbf{0}$};
+
+    \draw[thick] (-0.5*\b, 0.5*\b) rectangle (3.5*\b, -3.5*\b);
+
+    \draw[decorate, decoration={brace, amplitude=4pt}, thick]
+        (-0.5*\b, 0.62*\b) -- (0.5*\b, 0.62*\b)
+        node[midway, above, yshift=3pt] {$n_r$};
+    \draw[decorate, decoration={brace, amplitude=4pt, mirror}, thick]
+        (3.62*\b, 0.5*\b) -- (3.62*\b, -3.5*\b)
+        node[midway, right, xshift=4pt, align=left] {$n_z$ block\\ rows};
+\end{tikzpicture}
+\caption{Block-tridiagonal structure. The last block row carries the Dirichlet outlet condition $p'=0$.}
+\label{fig:bt_matrix}
+\end{subfigure}
+\hfill
+\begin{subfigure}{0.43\textwidth}
+\centering
+\begin{tikzpicture}[scale=0.95, every node/.style={font=\footnotesize}]
+    \draw[thick] (0,0) rectangle (3.2,-3.2);
+    \fill[orange!45] (0.10,-0.10) -- (3.10,-3.10) -- (3.10,-2.92) -- (0.10,0.08) -- cycle;
+    \fill[blue!25]   (0.10,-0.48) -- (2.72,-3.10) -- (2.72,-2.92) -- (0.10,-0.30) -- cycle;
+    \fill[green!30]  (0.48,-0.10) -- (3.10,-2.72) -- (2.92,-2.72) -- (0.30,-0.10) -- cycle;
+    \node at (1.00,-2.40) {$\mathbf{0}$};
+    \node at (2.25,-0.85) {$\mathbf{0}$};
+
+    \node[anchor=west] at (3.45,-0.55) {\textcolor{green!55!black}{$\blacksquare$}\ $e_i$};
+    \node[anchor=west] at (3.45,-1.60) {\textcolor{orange!80!black}{$\blacksquare$}\ $-(e_i{+}w_i{+}2a_z)$};
+    \node[anchor=west] at (3.45,-2.65) {\textcolor{blue!70}{$\blacksquare$}\ $w_i$};
+\end{tikzpicture}
+\caption{Each diagonal block $\mathbf{D}_j$ is itself tridiagonal ($n_r \times n_r$), from the radial stencil.}
+\label{fig:bt_block}
+\end{subfigure}
+
+\caption{Structure of the discrete pressure-Poisson operator that the block Thomas algorithm exploits.}
+\label{fig:bt_structure}
+\end{figure}
+
+
+\paragraph{Block Thomas elimination.}
+Equation~\eqref{eq:poisson_blocktri} is eliminated by the block form of the Thomas algorithm.
+The forward elimination forms the Schur complements
+\begin{equation}
+    \mathbf{M}_1 = \mathbf{D}_1,
+    \qquad
+    \mathbf{M}_j = \mathbf{D}_j - \mathbf{S}_j\,\mathbf{M}_{j-1}^{-1}\,\mathbf{N}_{j-1}
+                 = \mathbf{D}_j - a_z^2\,\mathbf{M}_{j-1}^{-1} ,
+    \label{eq:schur}
+\end{equation}
+after which the solution follows from two sweeps over the axial stations,
+\begin{align}
+    \mathbf{y}_j &= \mathbf{M}_j^{-1}\big(\mathbf{b}_j - a_z\,\mathbf{y}_{j-1}\big),
+        && j = 1,\dots,n_z \quad \text{(forward)}, \\
+    \mathbf{p}_j &= \mathbf{y}_j - a_z\,\mathbf{M}_j^{-1}\,\mathbf{p}_{j+1},
+        && j = n_z,\dots,1 \quad \text{(back substitution)} .
+\end{align}
+Each $\mathbf{M}_j$ is factorised with a hand-written Doolittle LU with partial pivoting, $\mathbf{P}\mathbf{M}_j = \mathbf{L}\mathbf{U}$ (\texttt{lu\_factor.m}), and inverted by forward/back substitution against the identity (\texttt{lu\_solve.m}).
+Because the unknowns are grouped by axial station, column~$j$ of the $(n_r \times n_z)$ field \emph{is} block~$j$ of the system; the implementation therefore needs no flattening and no flat-index bookkeeping at all.
+Figure~\ref{fig:bt_flowchart} shows the resulting algorithm.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+    node distance=0.5cm,
+    startstop/.style={rectangle, rounded corners, minimum width=5.8cm, minimum height=0.75cm,
+                      text centered, text width=5.5cm, draw=black, fill=blue!10, font=\small},
+    process/.style={rectangle, minimum width=5.8cm, minimum height=0.75cm,
+                    text centered, text width=5.5cm, draw=black, fill=orange!10, font=\small},
+    store/.style={rectangle, minimum width=5.8cm, minimum height=0.75cm,
+                  text centered, text width=5.5cm, draw=black, fill=yellow!20, font=\small},
+    arrow/.style={thick, -Stealth},
+    grp/.style={rectangle, rounded corners, draw=gray, dashed, inner sep=0.42cm}
+]
+
+% ===================== left column: set-up, once =========================
+\node (s0) [startstop] {Grid $r_c$, $r_f$, $\Delta r$, $\Delta z$};
+\node (s1) [process, below=of s0]
+    {Radial coefficients\\[3pt]
+     $e_i = r_{i+1/2} \,/\, (r_i\,\Delta r^2)$\\
+     $w_i = r_{i-1/2} \,/\, (r_i\,\Delta r^2)$\\
+     $a_z = 1 \,/\, \Delta z^2$\\[3pt]
+     $e_{n_r} = 0$, \ $w_1 = 0$ \ (Neumann)};
+\node (s2) [process, below=of s1]
+    {$\mathbf{M}_1 = \mathbf{D}_1$\\[2pt] (inlet: no south coupling)};
+\node (s3) [process, below=of s2]
+    {\textbf{for} $j = 2,\dots,n_z-1$\\[3pt]
+     $\mathbf{M}_j = \mathbf{D}_j - a_z^2\,\mathbf{M}_{j-1}^{-1}$\\[3pt]
+     factorise \texttt{lu\_factor}\\ invert \texttt{lu\_solve}};
+\node (s4) [process, below=of s3]
+    {$\mathbf{M}_{n_z} = \mathbf{I}$\\[2pt] (outlet: $p' = 0$)};
+\node (s5) [store, below=of s4]
+    {Store $\mathbf{M}_j^{-1}$, \ $j = 1,\dots,n_z$};
+
+\node[grp, fit=(s0)(s1)(s2)(s3)(s4)(s5)] (setup) {};
+\node[font=\small\bfseries, anchor=south west, xshift=0.05cm, yshift=0.1cm]
+    at (setup.north west) {Set-up --- once, before the time loop};
+
+% ===================== right column: every solve =========================
+\node (t0) [startstop, right=2.9cm of s0] {Predictor $u^*$, $w^*$};
+\node (t1) [process, below=of t0]
+    {$\mathbf{b} = \dfrac{1}{\Delta t}\,\nabla\!\cdot\mathbf{u}^*$, \quad
+     $\mathbf{b}_{n_z} = \mathbf{0}$};
+\node (t2) [process, below=1.3cm of t1]
+    {\textbf{Forward sweep}\\[2pt] $j = 1 \rightarrow n_z$\\[3pt]
+     $\mathbf{y}_j = \mathbf{M}_j^{-1}\big(\mathbf{b}_j - a_z\,\mathbf{y}_{j-1}\big)$};
+\node (t3) [process, below=1.3cm of t2]
+    {\textbf{Back substitution}\\[2pt] $j = n_z \rightarrow 1$\\[3pt]
+     $\mathbf{p}_j = \mathbf{y}_j - a_z\,\mathbf{M}_j^{-1}\,\mathbf{p}_{j+1}$};
+\node (t4) [startstop, below=of t3]
+    {$p'$ --- exact, no iteration};
+
+\node[grp, fit=(t0)(t1)(t2)(t3)(t4)] (persolve) {};
+\node[font=\small\bfseries, anchor=south west, xshift=0.05cm, yshift=0.1cm]
+    at (persolve.north west) {Every Poisson solve --- $O(n_r^2\,n_z)$};
+
+% ===================== arrows ============================================
+\draw[arrow] (s0) -- (s1);
+\draw[arrow] (s1) -- (s2);
+\draw[arrow] (s2) -- (s3);
+\draw[arrow] (s3) -- (s4);
+\draw[arrow] (s4) -- (s5);
+
+\draw[arrow] (t0) -- (t1);
+\draw[arrow] (t1) -- (t2);
+\draw[arrow] (t2) -- (t3);
+\draw[arrow] (t3) -- (t4);
+
+% the stored factors feed both sweeps
+\draw[arrow, dashed, gray!70!black] (s5.east) -- ++(0.5,0)
+    |- node[pos=0.72, above, font=\scriptsize, black] {reused every step} (t2.west);
+\draw[arrow, dashed, gray!70!black] (s5.east) -- ++(0.5,0) |- (t3.west);
+
+\end{tikzpicture}
+\caption{Block Thomas algorithm as implemented. The operator does not change in time, so the
+expensive elimination (left) runs once before the time loop; every pressure projection
+(right) is then two sweeps over the $n_z$ axial stations, with a fixed operation count and
+no convergence test.}
+\label{fig:bt_flowchart}
+\end{figure}
+
+
+\paragraph{Cost.}
+The operator is constant in time, so the factorisation~\eqref{eq:schur} is performed once, before the time loop, at a cost of $O(n_z\,n_r^3) \approx 3 \times 10^{7}$ flops --- 0.16\,s measured, in both MATLAB and Python.
+This is the advantage of LU-type factorisation stressed in~\cite{Steiner2025}: when the
+coefficient matrix does not change --- as here, with a temporally constant mesh --- the costly
+factorisation has to be carried out only once, and every subsequent solve needs only the cheap
+substitution steps.
+Each subsequent Poisson solve is then only the two sweeps above, i.e.\ two $50 \times 50$ matrix--vector products per axial station, $O(n_z\,n_r^2) \approx 1.2 \times 10^{6}$ flops.
+Measured: 1.8\,ms per solve in MATLAB and 1.0\,ms in Python, the same order as the backslash solve it replaces (0.5--0.9\,ms) and negligible beside the momentum and energy right-hand-side evaluations.
+
+\paragraph{Stability without pivoting between blocks.}
+By construction the diagonal coefficient of Eq.~\eqref{eq:poisson} is minus the sum of the four neighbour coefficients, so $|a_{kk}| = \sum_{l \neq k} |a_{kl}|$ in every interior row, with strict inequality in the Dirichlet outlet rows.
+Hence $-\mathbf{A}$ is an irreducibly diagonally dominant M-matrix, a property inherited by every Schur complement $\mathbf{M}_j$ in Eq.~\eqref{eq:schur}.
+LU without pivoting is therefore guaranteed to exist and to be backward stable for this operator, which is what makes a hand-written Thomas-type elimination safe here; partial pivoting is retained inside \texttt{lu\_factor.m} regardless, so that the kernel stays generally usable.
 
 Boundary conditions for $p'$:
 \begin{itemize}
@@ -717,11 +1004,47 @@ Boundary conditions for $p'$:
     \item Outlet ($z=50$): Dirichlet $p' = 0$ is imposed at the last pressure cell centre as the reference. This location is half a cell upstream of the physical outlet face, so the condition is a discrete pressure reference rather than an exactly face-centred outlet condition.
 \end{itemize}
 
+\subsection{Verification of the Poisson Solver}
+\label{sec:poisson_verification}
+
+Because the elimination is written by hand, it is verified explicitly.
+\texttt{verify\_poisson\_solver.m} (and its Python twin \texttt{verify\_poisson\_solver.py}) applies the solver to a random, divergence-carrying velocity predictor on the production grid and compares it with the same system assembled independently as a sparse matrix by \texttt{build\_poisson\_matrix.m} --- a routine that is otherwise unused by the time loop and is kept only for this check.
+Table~\ref{tab:poisson_verify} lists the outcome.
+
+\begin{table}[H]
+\centering
+\caption{Verification of the hand-written direct Poisson solver on the production grid ($n_r = 50$, $n_z = 250$, $12{,}500$ unknowns). Relative residuals are $\lVert \mathbf{A}\mathbf{p}' - \mathbf{b}\rVert_\infty / \lVert \mathbf{b} \rVert_\infty$.}
+\label{tab:poisson_verify}
+\begin{tabular}{lcc}
+\toprule
+Quantity & MATLAB & Python \\
+\midrule
+Dense LU kernel, $12\times12$ random system: $\lVert \mathbf{M}\mathbf{x}-\mathbf{b}\rVert_\infty$ & $1.2\times10^{-14}$ & $2.0\times10^{-15}$ \\
+Relative residual, block Thomas (this work)      & $1.7\times10^{-13}$ & $3.8\times10^{-13}$ \\
+Relative residual, reference library solver      & $4.6\times10^{-14}$ & $1.9\times10^{-13}$ \\
+$\lVert \mathbf{p}'_{\text{own}} - \mathbf{p}'_{\text{ref}}\rVert_\infty / \lVert \mathbf{p}'\rVert_\infty$ & $3.0\times10^{-10}$ & $4.4\times10^{-10}$ \\
+$\operatorname{cond}_1(\mathbf{A})$ (estimate)   & \multicolumn{2}{c}{$1.19\times10^{8}$} \\
+$\operatorname{cond}_1(\mathbf{A})\cdot\varepsilon_{\text{mach}}$ & \multicolumn{2}{c}{$2.6\times10^{-8}$} \\
+$\max|p'|$ on the outlet column (imposed $p'=0$) & $0$ & $0$ \\
+Factorisation time (once, before the time loop)  & $159$\,ms & $154$\,ms \\
+Solve time (per Poisson solve)                   & $1.80$\,ms & $0.97$\,ms \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The reference solver is MATLAB's sparse backslash (UMFPACK) and SciPy's \texttt{spsolve} (SuperLU) respectively.
+The meaningful accuracy measure is the \emph{backward} error: the hand-written solver and the library solver reach the same relative residual, to within a factor of four.
+The solution-level difference between them, $3\times10^{-10}$, is not an error in either solver but a consequence of the operator's conditioning --- it lies two orders of magnitude \emph{below} the bound $\operatorname{cond}_1(\mathbf{A})\,\varepsilon_{\text{mach}} = 2.6\times10^{-8}$, so the two are indistinguishable to the accuracy the discrete operator permits.
+
+The substitution was also checked end to end: running 200 Heun steps (400 Poisson solves) with the library solver and with the block-Thomas solver, starting from identical initial conditions, leaves $u$, $w$, $p$ and $\theta$ agreeing to a relative $1.6\times10^{-12}$ or better.
+Replacing the library call by the hand-written direct solver therefore changes the computed flow field only at round-off level.
+
 \subsection{Ghost Cells and Boundary Implementation}
 
 Ghost cells are used to impose the velocity and temperature boundary conditions in the staggered grid.
-Pressure-correction boundary conditions are imposed in the sparse Poisson matrix; the outlet
-reference is applied at the last pressure cell centre rather than through a pressure ghost cell.
+Pressure-correction boundary conditions are imposed directly in the block coefficients of the
+Poisson operator (Sec.~\ref{sec:poisson_solver}); the outlet reference is applied at the last
+pressure cell centre rather than through a pressure ghost cell.
 
 \begin{table}[H]
 \centering
@@ -778,8 +1101,12 @@ Table~\ref{tab:modules} lists all functions and their roles.
 \texttt{compute\_rhs\_T.m}    & Explicit RHS of the energy equation: 2nd-order upwind convection, central diffusion \\
 \texttt{predictor\_w.m}       & Thin 1-stage-Euler wrapper around \texttt{compute\_rhs\_w.m} (kept for standalone use) \\
 \texttt{predictor\_u.m}       & Thin 1-stage-Euler wrapper around \texttt{compute\_rhs\_u.m} (kept for standalone use) \\
-\texttt{build\_poisson\_matrix.m} & Assembles sparse Poisson matrix $\mathbf{A}$ (called once) \\
-\texttt{solve\_poisson.m}     & Solves $\mathbf{A}\,\mathbf{p}' = \mathbf{b}$ using MATLAB backslash \\
+\texttt{build\_poisson\_matrix.m} & Assembles the same operator as a sparse matrix; used only by \texttt{verify\_poisson\_solver.m} \\
+\texttt{lu\_factor.m}         & Hand-written Doolittle LU with partial pivoting, $\mathbf{P}\mathbf{M} = \mathbf{L}\mathbf{U}$ (elimination kernel) \\
+\texttt{lu\_solve.m}          & Forward/back substitution for the factors from \texttt{lu\_factor.m} \\
+\texttt{factorize\_poisson.m} & Block-Thomas factorisation of the block-tridiagonal Poisson operator (called once) \\
+\texttt{solve\_poisson.m}     & Solves $\mathbf{A}\,\mathbf{p}' = \mathbf{b}$ by the two block-Thomas sweeps (direct, no backslash) \\
+\texttt{verify\_poisson\_solver.m} & Verifies the hand-written solver against the assembled operator and a library reference \\
 \texttt{correct\_velocity.m}  & Applies pressure-gradient correction to $u^*$, $w^*$ \\
 \texttt{update\_pressure.m}   & Updates pressure: $p^{n+1} = p^n + \alpha_p\,p'$ \\
 \texttt{advance\_temperature.m} & Thin 1-stage-Euler wrapper around \texttt{compute\_rhs\_T.m} (kept for standalone use) \\
@@ -819,11 +1146,11 @@ Figure~\ref{fig:flowchart} shows the algorithm implemented in \texttt{main.m}.
 \node (start) [startstop] {Start};
 \node (grid) [process, below=of start] {Generate staggered grid};
 \node (init) [process, below=of grid] {Initialise fields ($u$, $w$, $p$, $\theta$)};
-\node (poisson_mat) [process, below=of init] {Assemble Poisson matrix $\mathbf{A}$ (once)};
+\node (poisson_mat) [process, below=of init] {Factorise Poisson operator (block Thomas, once)};
 \node (bc0) [process, below=of poisson_mat] {Apply boundary conditions};
 
 \node (pred) [process, below=1.5cm of bc0] {AB2 predictor $w^*$, $u^*$ including $\nabla p^n$};
-\node (solve_p) [process, below=of pred] {Solve Poisson: $\mathbf{A}\,\mathbf{p}' = \mathbf{b}$};
+\node (solve_p) [process, below=of pred] {Solve Poisson for $\mathbf{p}'$ (block Thomas sweeps)};
 \node (correct) [process, below=of solve_p] {Correct: $u^{n+1}$, $w^{n+1}$, $p^{n+1}$};
 \node (temp) [process, below=of correct] {Advance temperature $\theta^{n+1}$};
 \node (bc1) [process, below=of temp] {Apply boundary conditions};
@@ -862,13 +1189,13 @@ Figure~\ref{fig:flowchart} shows the algorithm implemented in \texttt{main.m}.
 \begin{itemize}
     \item \textbf{2nd-order upwind differencing}: Convective fluxes in both momentum and energy equations use LUD. It is formally second-order on smooth, resolved regions, as required by the assignment, but it is unbounded and can produce small local overshoots near sharp transients or boundaries.
 
-    \item \textbf{Sparse direct solver}: The Poisson matrix ($12{,}500 \times 12{,}500$) is assembled once using MATLAB's \texttt{sparse} function and solved each time step with the backslash operator (\texttt{A\textbackslash b}).
+    \item \textbf{Hand-written direct solver}: The Poisson operator ($12{,}500$ unknowns) is block tridiagonal --- $250$ blocks of $50 \times 50$ --- and is eliminated by a block Thomas algorithm built on our own Doolittle LU kernel. It is constant in time, so it is factorised once before the time loop; each time step costs only the two sweeps. No library linear solve is used (Sec.~\ref{sec:poisson_solver}).
 
     \item \textbf{Vectorised operations}: All stencil computations are performed using MATLAB's array operations, avoiding explicit loops over grid cells for efficiency.
 
     \item \textbf{Staggered grid}: Prevents checkerboard pressure oscillations; velocity components are stored at the faces where mass fluxes are naturally evaluated.
 
-    \item \textbf{Ghost cells}: Velocity and temperature boundary conditions are implemented through ghost-cell extensions. Pressure-correction boundary conditions are imposed directly in the sparse Poisson matrix, including the last-cell-centre outlet reference.
+    \item \textbf{Ghost cells}: Velocity and temperature boundary conditions are implemented through ghost-cell extensions. Pressure-correction boundary conditions are imposed directly in the block coefficients of the Poisson operator, including the last-cell-centre outlet reference.
 \end{itemize}
 
 \newpage
@@ -1126,7 +1453,7 @@ $u^{n+1}-u^n$ by $\Delta t=0.002$, amplifying floating-point noise by a factor $
 which is why it appears jagged at $\mathcal{O}(10^{-13})$ while $R_{\text{cont}}$ (not divided by
 $\Delta t$) stays visually flat near $\mathcal{O}(10^{-14})$--$\mathcal{O}(10^{-15})$.
 
-In the extended MATLAB run, $R_{\text{cont}}=6.46\times10^{-15}$ and
+In the extended MATLAB run, $R_{\text{cont}}=9.90\times10^{-15}$ and
 $R_{\text{vel}}=2.78\times10^{-14}$ at the converged time $t^*=139.728$. The temperature residual
 decreases from approximately $101$ at the first step and reaches
 $R_\theta=9.99\times10^{-7}$ at step $69{,}864$, just below the target $10^{-6}$. This residual is
@@ -1635,8 +1962,12 @@ corresponds to a module in Table~\ref{tab:modules}.
 \lstinputlisting[caption={ab2\_step.m --- AB2 step with one incremental pressure correction}, label={lst:ab2}]{../AdamsBashfort2/src_matlab/ab2_step.m}
 
 \subsection{Poisson Solver and Pressure Correction}
-\lstinputlisting[caption={build\_poisson\_matrix.m --- Sparse Poisson matrix assembly}, label={lst:buildA}]{../AdamsBashfort2/src_matlab/build_poisson_matrix.m}
-\lstinputlisting[caption={solve\_poisson.m --- Poisson solve using MATLAB backslash}, label={lst:solveP}]{../AdamsBashfort2/src_matlab/solve_poisson.m}
+\lstinputlisting[caption={lu\_factor.m --- Doolittle LU with partial pivoting (elimination kernel)}, label={lst:lufactor}]{../AdamsBashfort2/src_matlab/lu_factor.m}
+\lstinputlisting[caption={lu\_solve.m --- Forward/back substitution}, label={lst:lusolve}]{../AdamsBashfort2/src_matlab/lu_solve.m}
+\lstinputlisting[caption={factorize\_poisson.m --- Block-Thomas factorisation of the Poisson operator (called once)}, label={lst:facP}]{../AdamsBashfort2/src_matlab/factorize_poisson.m}
+\lstinputlisting[caption={solve\_poisson.m --- Poisson solve by the two block-Thomas sweeps}, label={lst:solveP}]{../AdamsBashfort2/src_matlab/solve_poisson.m}
+\lstinputlisting[caption={build\_poisson\_matrix.m --- Sparse assembly of the same operator, used only for verification}, label={lst:buildA}]{../AdamsBashfort2/src_matlab/build_poisson_matrix.m}
+\lstinputlisting[caption={verify\_poisson\_solver.m --- Verification of the hand-written direct solver}, label={lst:verifyP}]{../AdamsBashfort2/src_matlab/verify_poisson_solver.m}
 \lstinputlisting[caption={compute\_divergence.m --- Discrete velocity divergence (Poisson RHS and continuity residual)}, label={lst:divergence}]{../AdamsBashfort2/src_matlab/compute_divergence.m}
 \lstinputlisting[caption={correct\_velocity.m --- Velocity correction step}, label={lst:correct}]{../AdamsBashfort2/src_matlab/correct_velocity.m}
 \lstinputlisting[caption={update\_pressure.m --- Additive pressure-correction update}, label={lst:updatep}]{../AdamsBashfort2/src_matlab/update_pressure.m}
@@ -1689,6 +2020,18 @@ R.~B. Bird, W.~E. Stewart, and E.~N. Lightfoot,
 Wiley, New York.
 (The same fully developed constant-wall-flux tube problem is worked out and yields
 $\text{Nu} = 48/11$.)
+
+\bibitem{Steiner2025}
+H.~Steiner,
+\emph{Numerical Simulation and Modelling of Incompressible Flow},
+lecture notes, WS 2025/26 (Sections~I--V).
+Sec.~III.3.1 \emph{Direct linear equation solvers} (PDF pp.~55--61) presents
+(A)~Gauss' elimination (p.~55), (B)~LU decomposition (pp.~56--57), (C)~the Thomas
+algorithm (TDMA, p.~58), and (D)~the Fourier method (pp.~59--61);
+Sec.~III.3.2 (from p.~64) presents the iterative counterparts (Gauss--Seidel, SOR,
+LSOR, ADISOR).
+Included in this repository as
+\href{../Assignemnt/NumMethods-WS2526-SecItoV.pdf}{\texttt{Assignemnt/NumMethods-WS2526-SecItoV.pdf}}.
 
 \end{thebibliography}
 

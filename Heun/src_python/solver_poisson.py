@@ -24,7 +24,17 @@ Boundary conditions for p':
   Inlet      (j=0):      ∂p'/∂z = 0  → south flux = 0  (Neumann)
   Outlet     (j=n_z-1):  p' = 0      → Dirichlet (reference pressure)
 
-The matrix is assembled ONCE and reused every time step.
+The linear system is solved with a hand-written DIRECT method, as the
+assignment requires: the operator is block tridiagonal (n_z blocks of size
+n_r x n_r), and it is eliminated by the block Thomas algorithm on top of a
+Doolittle LU kernel written out below. Because the operator is constant in
+time it is factorised ONCE (factorize_poisson) before the time loop; each
+time step then costs only the two sweeps in solve_poisson. No library linear
+solve (scipy spsolve, numpy.linalg.solve, MATLAB backslash) is used.
+
+build_poisson_matrix assembles the same operator as a sparse matrix. It is no
+longer used by the time loop and is kept only so that verify_poisson_solver.py
+can check the hand-written solver's residual against an independent reference.
 """
 
 import numpy as np
@@ -52,6 +62,8 @@ def build_poisson_matrix(r_c, r_f, dr, dz, n_r, n_z):
     Returns
     -------
     A : scipy sparse CSR matrix  (n_r*n_z × n_r*n_z)
+
+    Not used by the solver itself -- see the module docstring.
     """
     N = n_r * n_z
     rows, cols, vals = [], [], []
@@ -114,17 +126,192 @@ def build_poisson_matrix(r_c, r_f, dr, dz, n_r, n_z):
 
 
 # ---------------------------------------------------------------------------
-# Solve the Poisson equation
+# Dense LU factorisation with partial pivoting  (hand-written)
+# ---------------------------------------------------------------------------
+#
+# The assignment requires a DIRECT solution method that is programmed, not a
+# library call (no numpy.linalg.solve / scipy spsolve / MATLAB backslash).
+# These two routines are the elimination kernel: classical Doolittle LU,
+# P·A = L·U, written out explicitly. They operate on the small (n_r x n_r)
+# blocks of the block-tridiagonal Poisson operator and are called ONLY during
+# set-up (see factorize_poisson).
 # ---------------------------------------------------------------------------
 
-def solve_poisson(A_or_solve, u_star, w_star, r_c, r_f, dr, dz, dt, n_r, n_z):
+def lu_factor(A):
     """
-    Solve  A · p'_flat = b  for pressure correction p'.
+    Doolittle LU factorisation with partial pivoting:  P·A = L·U.
 
     Parameters
     ----------
-    A_or_solve : sparse matrix or callable
-        Poisson matrix, or a pre-factorized direct-solve callable accepting b.
+    A : ndarray (n, n)   dense matrix (not modified)
+
+    Returns
+    -------
+    LU  : ndarray (n, n)
+        Packed factors. The strict lower triangle holds L (its unit diagonal
+        is implied), the upper triangle including the diagonal holds U.
+    piv : ndarray (n,) int
+        piv[k] is the row that was interchanged with row k at step k.
+    """
+    n = A.shape[0]
+    LU = np.array(A, dtype=float)
+    piv = np.zeros(n, dtype=int)
+
+    for k in range(n):
+        # --- partial pivoting: largest magnitude in column k, rows k..n-1
+        m = k + int(np.argmax(np.abs(LU[k:, k])))
+        piv[k] = m
+        if LU[m, k] == 0.0:
+            raise np.linalg.LinAlgError("zero pivot in column %d" % k)
+        if m != k:
+            LU[[k, m], :] = LU[[m, k], :]
+
+        # --- elimination; the multipliers are stored in the created zeros
+        LU[k + 1:, k] /= LU[k, k]
+        LU[k + 1:, k + 1:] -= np.outer(LU[k + 1:, k], LU[k, k + 1:])
+
+    return LU, piv
+
+
+def lu_solve(LU, piv, B):
+    """
+    Solve A·X = B from the factors returned by lu_factor: forward substitution
+    with L, then back substitution with U.
+
+    Parameters
+    ----------
+    LU, piv : output of lu_factor
+    B       : ndarray (n,) or (n, m)   one or several right-hand sides
+
+    Returns
+    -------
+    X : ndarray, same shape as B
+    """
+    n = LU.shape[0]
+    shape_in = B.shape
+    X = np.array(B, dtype=float).reshape(n, -1)
+
+    # --- apply the recorded row interchanges:  b <- P·b
+    for k in range(n):
+        m = piv[k]
+        if m != k:
+            X[[k, m], :] = X[[m, k], :]
+
+    # --- forward substitution  L·Y = P·b   (L has unit diagonal)
+    for k in range(n - 1):
+        X[k + 1:, :] -= np.outer(LU[k + 1:, k], X[k, :])
+
+    # --- back substitution  U·X = Y
+    for k in range(n - 1, -1, -1):
+        X[k, :] /= LU[k, k]
+        X[:k, :] -= np.outer(LU[:k, k], X[k, :])
+
+    return X.reshape(shape_in)
+
+
+# ---------------------------------------------------------------------------
+# Block-tridiagonal (block-Thomas) factorisation of the Poisson operator
+# ---------------------------------------------------------------------------
+
+def factorize_poisson(r_c, r_f, dr, dz, n_r, n_z):
+    """
+    Factorise the pressure-Poisson operator ONCE with a hand-written direct
+    method: the block Thomas algorithm built on the dense LU kernel above.
+
+    Structure
+    ---------
+    Group the unknowns p'[:, j] by axial station j. The 5-point stencil
+    couples a cell only to its radial neighbours (same j) and to j ± 1, so the
+    operator is BLOCK TRIDIAGONAL with n_z blocks of size n_r x n_r:
+
+        S_j·p_{j-1} + D_j·p_j + N_j·p_{j+1} = b_j ,     j = 0 .. n_z-1
+
+        D_j = tridiag( w_i , -(e_i + w_i + 2·a_z) , e_i )     (interior j)
+        S_j = N_j = a_z·I ,     a_z = 1/dz²
+        e_i = r_{i+½}/(r_i·dr²) ,    w_i = r_{i-½}/(r_i·dr²)
+
+    The boundary conditions enter as: e_{n_r-1} = 0 (Neumann at the wall);
+    w_0 = 0 automatically because r_{-½} = 0 (Neumann at the centreline); no
+    south coupling at j = 0, so that diagonal carries a_z once instead of
+    twice (Neumann at the inlet); and D = I, S = N = 0 at j = n_z-1
+    (Dirichlet p' = 0 at the outlet).
+
+    Block Thomas forward elimination
+    --------------------------------
+        M_0 = D_0
+        M_j = D_j − S_j·M_{j-1}^{-1}·N_{j-1} = D_j − a_z²·M_{j-1}^{-1}
+
+    which reduces the solve to the two sweeps in solve_poisson,
+    y_j = M_j^{-1}(b_j − a_z·y_{j-1})  and  p_j = y_j − a_z·M_j^{-1}·p_{j+1}.
+
+    The operator is constant in time, so the n_z Schur complements are
+    inverted here, once. Every subsequent Poisson solve then costs only two
+    (n_r x n_r) matrix-vector products per axial station, i.e. O(n_r²·n_z).
+
+    Stability
+    ---------
+    −A is an irreducibly diagonally dominant M-matrix: |diagonal| equals the
+    sum of the off-diagonal magnitudes in every interior row and is strictly
+    greater in the Dirichlet outlet rows. Every Schur complement M_j inherits
+    that property, so no pivoting is needed between blocks; partial pivoting
+    is used inside lu_factor regardless.
+
+    Returns
+    -------
+    fac : dict with keys
+        'Minv' : ndarray (n_z, n_r, n_r)   inverted Schur complements M_j^{-1}
+        'az'   : float                     a_z = 1/dz²
+        'n_r', 'n_z' : int
+    """
+    az = 1.0 / dz**2
+
+    # --- radial stencil coefficients (independent of j)
+    e = (r_f[1:] / (r_c * dr**2)).copy()    # coupling to i+1
+    w = (r_f[:-1] / (r_c * dr**2)).copy()   # coupling to i-1; w[0]=0 as r_f[0]=0
+    e[-1] = 0.0                             # Neumann at the wall
+
+    def tridiag(main_diag):
+        M = np.zeros((n_r, n_r))
+        idx = np.arange(n_r)
+        M[idx, idx] = main_diag
+        M[idx[:-1], idx[1:]] = e[:-1]       # super-diagonal
+        M[idx[1:], idx[:-1]] = w[1:]        # sub-diagonal
+        return M
+
+    D_inlet = tridiag(-(e + w + az))        # j = 0, no south flux
+    D_int = tridiag(-(e + w + 2.0 * az))    # 1 <= j <= n_z-2
+
+    I_n = np.eye(n_r)
+    Minv = np.zeros((n_z, n_r, n_r))
+
+    # j = 0: no south coupling, so M_0 = D_0
+    LU, piv = lu_factor(D_inlet)
+    Minv[0] = lu_solve(LU, piv, I_n)
+
+    # j = 1 .. n_z-2: Schur complement update, then invert
+    for j in range(1, n_z - 1):
+        LU, piv = lu_factor(D_int - az**2 * Minv[j - 1])
+        Minv[j] = lu_solve(LU, piv, I_n)
+
+    # j = n_z-1: Dirichlet row, D = I and no south coupling
+    Minv[n_z - 1] = I_n
+
+    return {'Minv': Minv, 'az': az, 'n_r': n_r, 'n_z': n_z}
+
+
+# ---------------------------------------------------------------------------
+# Solve the Poisson equation
+# ---------------------------------------------------------------------------
+
+def solve_poisson(fac, u_star, w_star, r_c, r_f, dr, dz, dt, n_r, n_z):
+    """
+    Solve  ∇²p' = (1/dt)·∇·u*  with the block-Thomas sweeps prepared by
+    factorize_poisson. No library linear solve is involved.
+
+    Parameters
+    ----------
+    fac : dict
+        Output of factorize_poisson (built once, before the time loop).
     u_star  : ndarray (n_r+1, n_z)  predicted radial velocity
     w_star  : ndarray (n_r, n_z+1)  predicted axial velocity
     r_c, r_f: arrays
@@ -149,17 +336,26 @@ def solve_poisson(A_or_solve, u_star, w_star, r_c, r_f, dr, dz, dt, n_r, n_z):
 
     b = (div_u + div_w) / dt   # (n_r, n_z)
 
-    # Outlet row (j=n_z-1) has Dirichlet p'=0 → RHS = 0
+    # Outlet column (j=n_z-1) has Dirichlet p'=0 → RHS = 0
     b[:, -1] = 0.0
 
-    b_flat = b.ravel()
+    # Column j of b IS block j of the block-tridiagonal system, so no
+    # flattening or flat-index bookkeeping is needed anywhere.
+    Minv = fac['Minv']
+    az = fac['az']
 
-    # Direct solve
-    if callable(A_or_solve):
-        p_prime_flat = A_or_solve(b_flat)
-    else:
-        p_prime_flat = spla.spsolve(A_or_solve, b_flat)
-    p_prime = p_prime_flat.reshape(n_r, n_z)
+    # --- forward sweep:  y_j = M_j^{-1}·(b_j − a_z·y_{j-1})
+    y = np.empty((n_r, n_z))
+    y[:, 0] = Minv[0] @ b[:, 0]
+    for j in range(1, n_z - 1):
+        y[:, j] = Minv[j] @ (b[:, j] - az * y[:, j - 1])
+    y[:, n_z - 1] = b[:, n_z - 1]     # Dirichlet row: M = I, no south coupling
+
+    # --- back substitution:  p_j = y_j − a_z·M_j^{-1}·p_{j+1}
+    p_prime = np.empty((n_r, n_z))
+    p_prime[:, n_z - 1] = y[:, n_z - 1]
+    for j in range(n_z - 2, -1, -1):
+        p_prime[:, j] = y[:, j] - az * (Minv[j] @ p_prime[:, j + 1])
 
     return p_prime
 

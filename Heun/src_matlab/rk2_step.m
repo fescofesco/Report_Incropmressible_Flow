@@ -1,4 +1,4 @@
-function [u_new, w_new, p_new, T_new] = rk2_step(u, w, p, T, r_c, r_f, dr, dz, dt, Re, Pr, n_r, n_z, A_poisson, alpha_p)
+function [u_new, w_new, p_new, T_new] = rk2_step(u, w, p, T, r_c, r_f, dr, dz, dt, Re, Pr, n_r, n_z, poisson_fac, alpha_p)
 % RK2_STEP  Advance (u, w, p, T) by one explicit-trapezoidal (Heun / RK2) step,
 %   with each velocity stage individually projected to remain divergence-free.
 %
@@ -41,7 +41,7 @@ function [u_new, w_new, p_new, T_new] = rk2_step(u, w, p, T, r_c, r_f, dr, dz, d
 
     % Project the stage-1 predictor so k2 is evaluated on a divergence-free
     % intermediate velocity field (u1, w1), not a raw Euler predictor.
-    p1_prime = solve_poisson(A_poisson, u1_star, w1_star, r_c, r_f, dr, dz, dt, n_r, n_z);
+    p1_prime = solve_poisson(poisson_fac, u1_star, w1_star, r_c, r_f, dr, dz, dt, n_r, n_z);
     [u1, w1] = correct_velocity(u1_star, w1_star, p1_prime, dr, dz, dt);
     u1 = apply_bc_u(u1);
     w1 = apply_bc_w(w1);
@@ -59,7 +59,7 @@ function [u_new, w_new, p_new, T_new] = rk2_step(u, w, p, T, r_c, r_f, dr, dz, d
     u_star = apply_bc_u(u_star);
 
     % ---- Final pressure projection on the combined predictor ------------------
-    p_prime = solve_poisson(A_poisson, u_star, w_star, r_c, r_f, dr, dz, dt, n_r, n_z);
+    p_prime = solve_poisson(poisson_fac, u_star, w_star, r_c, r_f, dr, dz, dt, n_r, n_z);
     [u_new, w_new] = correct_velocity(u_star, w_star, p_prime, dr, dz, dt);
     u_new = apply_bc_u(u_new);
     w_new = apply_bc_w(w_new);
